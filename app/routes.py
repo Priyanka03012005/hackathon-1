@@ -8,6 +8,7 @@ from app.suggestion_history import suggestion_history
 from app.repo_manager import repo_manager
 from app.ai_model import code_analyzer, detect_language, generate_test_code
 from app.ai_optimizer import ai_optimizer
+from app.ollama_integration import ollama_code_llama
 
 main_bp = Blueprint('main', __name__)
 
@@ -176,11 +177,88 @@ def upload():
             # Get project root (using the temp directory as project root)
             project_root = temp_dir
             
-            # Perform AI-based code analysis
-            ai_analysis = code_analyzer.analyze_code(code_content, filename)
+            # Get Ollama setting from session
+            use_ollama = session.get('use_ollama', True)
+            print(f"[DEBUG] Upload: use_ollama setting = {use_ollama}")
             
+            try:
+                if use_ollama:
+                    # Update Ollama URL if set in session
+                    ollama_url = session.get('ollama_url', 'http://localhost:11434')
+                    print(f"[DEBUG] Upload: Ollama URL = {ollama_url}")
+                    
+                    # Update the Ollama URL
+                    ollama_code_llama.base_url = ollama_url
+                    ollama_code_llama.api_url = f"{ollama_url}/api/generate"
+                    print(f"[DEBUG] Upload: Set API URL to {ollama_code_llama.api_url}")
+                    
+                    # Check if Ollama is available
+                    ollama_available = ollama_code_llama.check_availability()
+                    print(f"[DEBUG] Upload: Ollama availability check result = {ollama_available}")
+                    
+                    if ollama_available:
+                        print(f"[INFO] Using Ollama Code Llama model at {ollama_url} for analysis")
+                        try:
+                            print(f"[DEBUG] Upload: Starting Ollama code analysis for {language}")
+                            ai_analysis = ollama_code_llama.analyze_code(code_content, language)
+                            print(f"[SUCCESS] Ollama analysis completed with {len(ai_analysis.get('bugs', []))} bugs, " +
+                                  f"{len(ai_analysis.get('security', []))} security issues, and " +
+                                  f"{len(ai_analysis.get('optimizations', []))} optimization suggestions")
+                            
+                            # Add model info
+                            model_info = {
+                                'name': f"Ollama {ollama_code_llama.model_name}",
+                                'is_ollama': True,
+                                'url': ollama_url
+                            }
+                        except Exception as ollama_error:
+                            print(f"[ERROR] Ollama analysis failed: {str(ollama_error)}")
+                            print(f"[INFO] Falling back to rule-based analyzer")
+                            flash(f"Ollama analysis failed: {str(ollama_error)}. Using rule-based analyzer instead.", "warning")
+                            ai_analysis = code_analyzer.analyze_code(code_content, filename)
+                            
+                            # Add model info
+                            model_info = {
+                                'name': "Pattern Matcher (Fallback)",
+                                'is_ollama': False,
+                                'reason': str(ollama_error)
+                            }
+                    else:
+                        print(f"[ERROR] Ollama not available at {ollama_url}")
+                        print(f"[INFO] Falling back to rule-based analyzer")
+                        flash("Ollama server not available. Using rule-based analyzer instead.", "warning")
+                        ai_analysis = code_analyzer.analyze_code(code_content, filename)
+                        
+                        # Add model info
+                        model_info = {
+                            'name': "Pattern Matcher (Fallback)",
+                            'is_ollama': False,
+                            'reason': "Ollama server not available"
+                        }
+                else:
+                    print("[INFO] Rule-based analyzer selected per user settings")
+                    ai_analysis = code_analyzer.analyze_code(code_content, filename)
+                    
+                    # Add model info
+                    model_info = {
+                        'name': "Pattern Matcher",
+                        'is_ollama': False
+                    }
+            except Exception as e:
+                print(f"[ERROR] Critical error during analysis setup: {str(e)}")
+                flash(f"Analysis setup error: {str(e)}. Using rule-based analyzer.", "danger")
+                # Fall back to built-in analyzer if any error occurs
+                ai_analysis = code_analyzer.analyze_code(code_content, filename)
+                
+                # Add model info
+                model_info = {
+                    'name': "Pattern Matcher (Error Recovery)",
+                    'is_ollama': False,
+                    'reason': str(e)
+                }
+
             # Add debug prints
-            print(f"Detected language: {detect_language(filename, code_content)}")
+            print(f"Detected language: {language}")
             print(f"Number of bugs found: {len(ai_analysis.get('bugs', []))}")
             print(f"Number of security issues found: {len(ai_analysis.get('security', []))}")
             print(f"Number of optimization issues found: {len(ai_analysis.get('optimizations', []))}")
@@ -266,7 +344,9 @@ def upload():
                     'complexity': 0,
                     'maintainability': 0,
                     'performance': 0
-                })
+                }),
+                # Add model info
+                'model_info': model_info
             }
             
             # Save to history
@@ -396,21 +476,73 @@ def settings():
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
     
-    user = users.get(session['user_id'])
-    
     if request.method == 'POST':
-        name = request.form.get('name')
-        github_link = request.form.get('github_link')
-        theme = request.form.get('theme')
+        # Update settings in session
+        ai_model = request.form.get('ai_model', 'default')
+        print(f"[DEBUG] Settings: ai_model form value = '{ai_model}'")
         
-        # Update user settings
-        user['name'] = name
-        user['github_link'] = github_link
-        user['theme'] = theme
+        # Explicitly set use_ollama to True or False based on the selection
+        if ai_model == 'ollama':
+            session['use_ollama'] = True
+            print("[DEBUG] Settings: Enabling Ollama integration")
+        else:
+            session['use_ollama'] = False
+            print("[DEBUG] Settings: Disabling Ollama integration")
         
-        flash('Settings updated successfully')
+        # Store the Ollama URL
+        ollama_url = request.form.get('ollama_url', 'http://localhost:11434')
+        session['ollama_url'] = ollama_url
+        print(f"[DEBUG] Settings: Setting Ollama URL to {ollama_url}")
+        
+        # Update context setting
+        session['use_context'] = 'use_context' in request.form
+        
+        # Update Ollama URL if it changed and Ollama is enabled
+        if session['use_ollama'] and session['ollama_url']:
+            ollama_code_llama.base_url = session['ollama_url']
+            ollama_code_llama.api_url = f"{session['ollama_url']}/api/generate"
+            print(f"[DEBUG] Settings: Updated Ollama API URL to {ollama_code_llama.api_url}")
+        
+        flash('Settings updated successfully', 'success')
+        return redirect(url_for('main.settings'))
     
-    return render_template('settings.html', user=user)
+    # Debug current session settings
+    print(f"[DEBUG] Current session settings: use_ollama = {session.get('use_ollama', 'Not set')}")
+    print(f"[DEBUG] Current session settings: ollama_url = {session.get('ollama_url', 'Not set')}")
+    
+    return render_template('settings.html')
+
+@main_bp.route('/check_ollama', methods=['GET'])
+def check_ollama():
+    print("[DEBUG] check_ollama route called")
+    url = request.args.get('url', 'http://localhost:11434')
+    print(f"[DEBUG] check_ollama: Checking URL {url}")
+    
+    # Temporarily update the Ollama URL
+    from app.ollama_integration import OllamaCodeLlama
+    temp_ollama = OllamaCodeLlama(base_url=url)
+    
+    try:
+        is_available = temp_ollama.check_availability()
+        print(f"[DEBUG] check_ollama: Availability result = {is_available}")
+        
+        if is_available:
+            return jsonify({
+                'available': True,
+                'model': temp_ollama.model_name
+            })
+        else:
+            return jsonify({
+                'available': False,
+                'message': 'Ollama is not available or the model could not be loaded. Make sure Ollama is running and the URL is correct.'
+            })
+    except Exception as e:
+        print(f"[ERROR] check_ollama: Error checking availability: {str(e)}")
+        return jsonify({
+            'available': False,
+            'error': str(e),
+            'message': 'An error occurred while checking Ollama availability.'
+        })
 
 @main_bp.route('/suggestion-history')
 def suggestion_history_view():

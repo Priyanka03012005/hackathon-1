@@ -57,6 +57,25 @@
                                     </div>
                                 </div>
                                 
+                                <div class="mb-3">
+                                    <div class="alert alert-primary">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-brain me-2"></i>
+                                            <div>
+                                                <strong>AI Model: {% if session.use_ollama == False %}Pattern Matcher{% else %}Ollama Code Llama 7B{% endif %}</strong>
+                                                <div class="small">
+                                                    {% if session.use_ollama == False %}
+                                                    Using rule-based pattern matching for code analysis.
+                                                    {% else %}
+                                                    Using Ollama's Code Llama 7B for advanced analysis (will fall back to pattern matcher if unavailable).
+                                                    {% endif %}
+                                                    <a href="{{ url_for('main.settings') }}#ai-models" class="ms-1">Change model</a>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
                                 <div class="text-end">
                                     <button type="submit" class="btn btn-primary px-4">
                                         <i class="fas fa-search me-2"></i> Analyze Code
@@ -111,6 +130,25 @@
                                         <small>The system will automatically detect the programming language based on the file extension and code content.</small>
                                         <div id="paste-language-detection-status" class="mt-1 d-none">
                                             <strong>Detected language: <span id="paste-detected-language">None</span></strong>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="alert alert-primary">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-brain me-2"></i>
+                                            <div>
+                                                <strong>AI Model: {% if session.use_ollama == False %}Pattern Matcher{% else %}Ollama Code Llama 7B{% endif %}</strong>
+                                                <div class="small">
+                                                    {% if session.use_ollama == False %}
+                                                    Using rule-based pattern matching for code analysis.
+                                                    {% else %}
+                                                    Using Ollama's Code Llama 7B for advanced analysis (will fall back to pattern matcher if unavailable).
+                                                    {% endif %}
+                                                    <a href="{{ url_for('main.settings') }}#ai-models" class="ms-1">Change model</a>
+                                                </div>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

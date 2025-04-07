@@ -22,6 +22,13 @@
                 <i class="fas fa-code me-1"></i> Language: {{ scan.language|capitalize }}
             </div>
             <span class="ms-2 text-muted"><small>File: {{ scan.filename }}</small></span>
+            
+            {% if scan.model_info %}
+            <div class="ms-2 badge {% if scan.model_info.is_ollama %}bg-primary{% else %}bg-info{% endif %}">
+                <i class="fas {% if scan.model_info.is_ollama %}fa-brain{% else %}fa-code-branch{% endif %} me-1"></i> 
+                {{ scan.model_info.name }}
+            </div>
+            {% endif %}
         </div>
     </div>
 

@@ -29,6 +29,9 @@
                 <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
                     <i class="fas fa-shield-alt me-2"></i> Security
                 </a>
+                <a href="#ai-models" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-brain me-2"></i> AI Models
+                </a>
             </div>
         </div>
         
@@ -323,8 +326,197 @@
                         </div>
                     </div>
                 </div>
+                
+                <div class="tab-pane fade" id="ai-models">
+                    <div class="settings-card">
+                        <h3>AI Model Settings</h3>
+                        
+                        <form method="POST" action="{{ url_for('main.settings') }}">
+                            <div class="mb-4">
+                                <label class="form-label">Choose AI Model</label>
+                                <div class="model-selection">
+                                    <div class="form-check mb-3 p-3 border rounded{% if session.use_ollama == False %} active{% endif %}">
+                                        <input class="form-check-input" type="radio" name="ai_model" id="defaultModel" value="default" {% if session.use_ollama == False %}checked{% endif %}>
+                                        <label class="form-check-label d-block" for="defaultModel">
+                                            <strong>Pattern Matcher</strong>
+                                            <p class="mb-0 text-muted small">Uses rule-based pattern matching to find common issues in code. Fast and lightweight.</p>
+                                        </label>
+                                    </div>
+                                    <div class="form-check mb-3 p-3 border rounded{% if session.use_ollama != False %} active{% endif %}">
+                                        <input class="form-check-input" type="radio" name="ai_model" id="ollamaModel" value="ollama" {% if session.use_ollama != False %}checked{% endif %}>
+                                        <label class="form-check-label d-block" for="ollamaModel">
+                                            <strong>Ollama Code Llama 7B (Recommended)</strong>
+                                            <p class="mb-0 text-muted small">Uses Ollama's Code Llama 7B model for more advanced analysis. Will fall back to pattern matcher if unavailable.</p>
+                                        </label>
+                                        <div class="mt-2">
+                                            <div class="input-group">
+                                                <span class="input-group-text">Ollama URL</span>
+                                                <input type="text" class="form-control" name="ollama_url" value="{{ session.ollama_url or 'http://localhost:11434' }}" placeholder="http://localhost:11434">
+                                            </div>
+                                            <small class="text-muted">The URL where Ollama API is running</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-4">
+                                <div id="ollama-status" class="alert alert-info">
+                                    <div class="d-flex align-items-center">
+                                        <div class="spinner-border spinner-border-sm me-2" role="status">
+                                            <span class="visually-hidden">Checking...</span>
+                                        </div>
+                                        <span>Checking Ollama availability...</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label class="form-label">Analysis Options</label>
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="use_context" name="use_context" {% if session.use_context %}checked{% endif %}>
+                                    <label class="form-check-label" for="use_context">Enable context-aware analysis</label>
+                                    <small class="text-muted d-block">Analyzes code in the context of your project files</small>
+                                </div>
+                            </div>
+
+                            <div class="text-end">
+                                <button type="submit" class="btn btn-primary px-4">
+                                    <i class="fas fa-save me-2"></i> Save AI Settings
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const modelSelectionDivs = document.querySelectorAll('.model-selection .form-check');
+        const modelRadios = document.querySelectorAll('input[name="ai_model"]');
+        const ollamaUrlInput = document.querySelector('input[name="ollama_url"]');
+        const ollamaStatus = document.getElementById('ollama-status');
+        
+        // Make the whole div clickable for model selection
+        modelSelectionDivs.forEach(div => {
+            div.addEventListener('click', function() {
+                const radio = this.querySelector('input[type="radio"]');
+                radio.checked = true;
+                
+                // Update active state
+                modelSelectionDivs.forEach(d => d.classList.remove('active'));
+                this.classList.add('active');
+            });
+        });
+        
+        // Check Ollama availability
+        function checkOllamaAvailability() {
+            const url = ollamaUrlInput.value || 'http://localhost:11434';
+            
+            ollamaStatus.innerHTML = `
+                <div class="d-flex align-items-center">
+                    <div class="spinner-border spinner-border-sm me-2" role="status">
+                        <span class="visually-hidden">Checking...</span>
+                    </div>
+                    <span>Checking Ollama availability...</span>
+                </div>
+            `;
+            
+            fetch('/check_ollama?url=' + encodeURIComponent(url))
+                .then(response => response.json())
+                .then(data => {
+                    if (data.available) {
+                        ollamaStatus.className = 'alert alert-success';
+                        ollamaStatus.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <span>Ollama is available with model <strong>${data.model}</strong> at <code>${url}</code></span>
+                            </div>
+                            <div class="mt-2 small">
+                                <strong>Status:</strong> Ready to use for advanced code analysis. This will provide better quality results.
+                            </div>
+                        `;
+                        
+                        // Auto-select Ollama if it's available
+                        if (!document.getElementById('ollamaModel').checked) {
+                            const ollamaDiv = document.getElementById('ollamaModel').closest('.form-check');
+                            ollamaDiv.click();
+                        }
+                    } else {
+                        ollamaStatus.className = 'alert alert-warning';
+                        ollamaStatus.innerHTML = `
+                            <div class="d-flex align-items-center">
+                                <i class="fas fa-exclamation-triangle me-2"></i>
+                                <span>${data.message}</span>
+                            </div>
+                            <div class="mt-2 small">
+                                <strong>Fallback:</strong> The system will automatically use rule-based pattern matching if Ollama is unavailable.
+                            </div>
+                            <div class="mt-2">
+                                <a href="https://ollama.ai" target="_blank" class="btn btn-sm btn-outline-primary">
+                                    <i class="fas fa-download me-1"></i> Get Ollama
+                                </a>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-2" onclick="checkOllamaAvailability()">
+                                    <i class="fas fa-sync-alt me-1"></i> Recheck
+                                </button>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(error => {
+                    ollamaStatus.className = 'alert alert-danger';
+                    ollamaStatus.innerHTML = `
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-times-circle me-2"></i>
+                            <span>Error checking Ollama: ${error.message}</span>
+                        </div>
+                        <div class="mt-2 small">
+                            <strong>Fallback:</strong> The system will automatically use rule-based pattern matching.
+                        </div>
+                    `;
+                });
+        }
+        
+        // Make checkOllamaAvailability available globally
+        window.checkOllamaAvailability = checkOllamaAvailability;
+        
+        // Check when URL changes
+        ollamaUrlInput.addEventListener('change', checkOllamaAvailability);
+        
+        // Check when AI Models tab is activated
+        document.querySelector('a[href="#ai-models"]').addEventListener('shown.bs.tab', function (e) {
+            checkOllamaAvailability();
+        });
+        
+        // Check if AI Models tab is active on page load
+        if (window.location.hash === '#ai-models' || 
+            document.querySelector('a[href="#ai-models"]').classList.contains('active')) {
+            checkOllamaAvailability();
+        }
+    });
+</script>
+
+<style>
+    .model-selection .form-check {
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .model-selection .form-check:hover {
+        background-color: rgba(0,0,0,0.02);
+    }
+    
+    .model-selection .form-check.active {
+        border-color: #0d6efd !important;
+        background-color: rgba(13, 110, 253, 0.05);
+    }
+    
+    .model-selection .form-check-input {
+        margin-top: 0.3em;
+    }
+</style>
 {% endblock %} 
