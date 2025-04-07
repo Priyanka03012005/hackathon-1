@@ -239,21 +239,26 @@ def upload():
                 'filename': filename,
                 'language': language,
                 'timestamp': datetime.now(),
-                'bugs': bugs,
-                'security': security,
-                'optimizations': optimizations,
+                'code_content': code_content,  # Save the original code content
+                'bugs': ai_analysis.get('bugs', []),
+                'security': ai_analysis.get('security', []),
+                'optimizations': ai_analysis.get('optimizations', []),
                 'bugs_count': len(bugs),
                 'security_count': len(security),
                 'optimization_count': len(optimizations),
-                'complexity_score': ai_analysis.get('complexity_score', 0),
-                'maintainability_score': ai_analysis.get('maintainability_score', 0),
-                'security_score': ai_analysis.get('security_score', 0),
-                'performance_score': ai_analysis.get('performance_score', 0),
-                'reliability_score': ai_analysis.get('reliability_score', 0),
+                'complexity_score': ai_analysis.get('metrics', {}).get('complexity', 0),
+                'maintainability_score': ai_analysis.get('metrics', {}).get('maintainability', 0),
+                'performance_score': ai_analysis.get('metrics', {}).get('performance', 0),
                 'context_analysis': {
                     **context_analysis,
                     'suggestions': context_suggestions
-                }
+                },
+                # Include the metrics object to match the template
+                'metrics': ai_analysis.get('metrics', {
+                    'complexity': 0,
+                    'maintainability': 0,
+                    'performance': 0
+                })
             }
             
             # Save to history
