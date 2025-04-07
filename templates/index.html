@@ -3,29 +3,100 @@
 {% block title %}Home - AI Code Reviewer{% endblock %}
 
 {% block content %}
+<div class="hero-section">
+    <div class="container">
+        <div class="hero-content">
+            <h1>Welcome to AI Code Reviewer</h1>
+            <p class="lead">An intelligent tool to review, optimize, and secure your code using advanced AI technology.</p>
+            <div class="cta-buttons">
+                <a href="{{ url_for('main.upload') }}" class="btn btn-primary btn-lg">Try it Now</a>
+                <a href="{{ url_for('main.login') }}" class="btn btn-outline-secondary btn-lg">Login</a>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="container">
-    <h1>Welcome to AI Code Reviewer</h1>
-    <p>An intelligent tool to review and improve your code.</p>
-    
-    <div class="features">
-        <div class="feature-card">
-            <h2>Automated Reviews</h2>
-            <p>Get instant feedback on your code quality and best practices.</p>
-        </div>
+    <section class="features-section">
+        <h2 class="section-title">Why Choose Our AI Code Reviewer?</h2>
         
-        <div class="feature-card">
-            <h2>Code Optimization</h2>
-            <p>Suggestions to improve performance and readability.</p>
+        <div class="features">
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-bug"></i>
+                </div>
+                <h3>Bug Detection</h3>
+                <p>Automatically identify bugs, logic errors, and edge cases before they reach production.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <h3>Security Analysis</h3>
+                <p>Detect security vulnerabilities, potential exploits, and implement best security practices.</p>
+            </div>
+            
+            <div class="feature-card">
+                <div class="feature-icon">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <h3>Performance Optimization</h3>
+                <p>Get suggestions to optimize your code for better speed and memory usage.</p>
+            </div>
         </div>
+    </section>
+
+    <section class="how-it-works">
+        <h2 class="section-title">How It Works</h2>
         
-        <div class="feature-card">
-            <h2>Security Analysis</h2>
-            <p>Identify potential security vulnerabilities in your code.</p>
+        <div class="steps">
+            <div class="step">
+                <div class="step-number">1</div>
+                <h3>Upload Your Code</h3>
+                <p>Upload a file or paste your code directly into our platform.</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">2</div>
+                <h3>AI Analysis</h3>
+                <p>Our AI engine analyzes your code for bugs, security issues, and performance bottlenecks.</p>
+            </div>
+            
+            <div class="step">
+                <div class="step-number">3</div>
+                <h3>Get Results</h3>
+                <p>Receive a detailed report with actionable suggestions to improve your code.</p>
+            </div>
         </div>
-    </div>
-    
-    <div class="cta">
-        <a href="#" class="btn">Get Started</a>
-    </div>
+    </section>
+
+    <section class="testimonials">
+        <h2 class="section-title">What Developers Are Saying</h2>
+        
+        <div class="testimonial-cards">
+            <div class="testimonial-card">
+                <p class="quote">"This AI code reviewer found critical security issues that our team had missed. A must-have tool for any serious development team."</p>
+                <div class="testimonial-author">
+                    <p class="name">Sarah Johnson</p>
+                    <p class="role">Lead Developer at TechCorp</p>
+                </div>
+            </div>
+            
+            <div class="testimonial-card">
+                <p class="quote">"The performance optimization suggestions improved our application's response time by 40%. The ROI on this tool is incredible."</p>
+                <div class="testimonial-author">
+                    <p class="name">Michael Chen</p>
+                    <p class="role">CTO at StartupX</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="cta-section">
+        <h2>Ready to improve your code quality?</h2>
+        <p>Join thousands of developers who trust our AI to review their code.</p>
+        <a href="{{ url_for('main.signup') }}" class="btn btn-primary btn-lg">Sign Up Free</a>
+    </section>
 </div>
 {% endblock %} 

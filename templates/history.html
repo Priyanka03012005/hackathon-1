@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block title %}Analysis History - AI Code Reviewer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">Analysis History</h1>
+            <p class="lead">View all your past code analysis results.</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-2"></i> New Analysis
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    {% if scans %}
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex align-items-center">
+                            <div class="input-group me-3" style="width: 300px;">
+                                <input type="text" class="form-control" placeholder="Search filenames..." id="search-input">
+                                <button class="btn btn-outline-secondary" type="button" id="search-button">
+                                    <i class="fas fa-search"></i>
+                                </button>
+                            </div>
+                            <select class="form-select me-3" style="width: 200px;" id="language-filter">
+                                <option value="">All Languages</option>
+                                <option value="python">Python</option>
+                                <option value="javascript">JavaScript</option>
+                                <option value="java">Java</option>
+                                <option value="html">HTML</option>
+                                <option value="css">CSS</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        <div>
+                            <button class="btn btn-outline-secondary" id="sort-toggle">
+                                <i class="fas fa-sort-amount-down"></i> Date
+                            </button>
+                        </div>
+                    </div>
+                
+                    <div class="table-responsive">
+                        <table class="table table-hover history-table" id="history-table">
+                            <thead>
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>Language</th>
+                                    <th>Date</th>
+                                    <th>Issues</th>
+                                    <th width="180">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for scan in scans %}
+                                <tr data-language="{{ scan.language }}">
+                                    <td>{{ scan.filename }}</td>
+                                    <td><span class="badge bg-secondary">{{ scan.language }}</span></td>
+                                    <td>{{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <span class="badge bg-danger me-1" title="Bugs">{{ scan.bugs_count }}</span>
+                                            <span class="badge bg-warning me-1" title="Security Issues">{{ scan.security_count }}</span>
+                                            <span class="badge bg-info" title="Optimizations">{{ scan.optimization_count }}</span>
+                                            <span class="ms-2 small">({{ scan.bugs_count + scan.security_count + scan.optimization_count }} total)</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <a href="{{ url_for('main.report', scan_id=scan.id) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-file-alt"></i> Report
+                                        </a>
+                                        <a href="{{ url_for('main.optimization', scan_id=scan.id) }}" class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-tachometer-alt"></i> Optimize
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-4">
+                        <div>
+                            <p class="mb-0 text-muted">Showing {{ scans|length }} results</p>
+                        </div>
+                        <nav aria-label="Page navigation">
+                            <ul class="pagination">
+                                <li class="page-item disabled">
+                                    <a class="page-link" href="#" tabindex="-1" aria-disabled="true">Previous</a>
+                                </li>
+                                <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                <li class="page-item"><a class="page-link" href="#">2</a></li>
+                                <li class="page-item"><a class="page-link" href="#">3</a></li>
+                                <li class="page-item">
+                                    <a class="page-link" href="#">Next</a>
+                                </li>
+                            </ul>
+                        </nav>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-history fa-3x mb-3 text-muted"></i>
+                        <p class="lead">No analysis history found</p>
+                        <p>Upload your first code sample to get started.</p>
+                        <a href="{{ url_for('main.upload') }}" class="btn btn-primary mt-3">
+                            <i class="fas fa-upload me-2"></i> Upload Code
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if scans %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Search functionality
+        const searchInput = document.getElementById('search-input');
+        const searchButton = document.getElementById('search-button');
+        const languageFilter = document.getElementById('language-filter');
+        const table = document.getElementById('history-table');
+        const rows = table.querySelectorAll('tbody tr');
+        
+        function filterTable() {
+            const searchTerm = searchInput.value.toLowerCase();
+            const languageValue = languageFilter.value.toLowerCase();
+            
+            rows.forEach(row => {
+                const filename = row.cells[0].textContent.toLowerCase();
+                const language = row.getAttribute('data-language').toLowerCase();
+                
+                const matchesSearch = filename.includes(searchTerm);
+                const matchesLanguage = languageValue === '' || language === languageValue;
+                
+                row.style.display = matchesSearch && matchesLanguage ? '' : 'none';
+            });
+        }
+        
+        searchInput.addEventListener('keyup', filterTable);
+        searchButton.addEventListener('click', filterTable);
+        languageFilter.addEventListener('change', filterTable);
+        
+        // Sorting functionality
+        const sortToggle = document.getElementById('sort-toggle');
+        let sortAscending = false;
+        
+        sortToggle.addEventListener('click', function() {
+            sortAscending = !sortAscending;
+            sortToggle.innerHTML = sortAscending ? 
+                '<i class="fas fa-sort-amount-up"></i> Date' : 
+                '<i class="fas fa-sort-amount-down"></i> Date';
+            
+            const tbody = table.querySelector('tbody');
+            const rowsArray = Array.from(rows);
+            
+            rowsArray.sort((a, b) => {
+                const dateA = new Date(a.cells[2].textContent);
+                const dateB = new Date(b.cells[2].textContent);
+                
+                return sortAscending ? dateA - dateB : dateB - dateA;
+            });
+            
+            // Clear the table and append sorted rows
+            rowsArray.forEach(row => tbody.appendChild(row));
+        });
+    });
+</script>
+{% endif %}
+{% endblock %} 

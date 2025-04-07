@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Code Optimization - AI Code Reviewer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.report', scan_id=scan.id) }}">Analysis Report</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Optimization</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Code Optimization</h1>
+            <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-secondary me-2">{{ scan.language }}</span>
+                <h5 class="mb-0 me-3">{{ scan.filename }}</h5>
+                <small class="text-muted">Analyzed on {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.report', scan_id=scan.id) }}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-file-alt me-2"></i> Report
+            </a>
+            <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-2"></i> New Analysis
+            </a>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Performance Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6 mb-4">
+                            <h6 class="text-muted mb-1">Time Complexity</h6>
+                            <h4 class="mb-0">O(n<sup>2</sup>)</h4>
+                        </div>
+                        <div class="col-6 mb-4">
+                            <h6 class="text-muted mb-1">Space Complexity</h6>
+                            <h4 class="mb-0">O(n)</h4>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-muted mb-1">Cyclomatic Complexity</h6>
+                            <h4 class="mb-0">12</h4>
+                        </div>
+                        <div class="col-6">
+                            <h6 class="text-muted mb-1">Lines of Code</h6>
+                            <h4 class="mb-0">157</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Code Quality Score</h5>
+                </div>
+                <div class="card-body text-center py-4">
+                    <div style="width: 150px; height: 150px; margin: 0 auto 20px;">
+                        <canvas id="qualityChart"></canvas>
+                    </div>
+                    <h2 class="mb-0">73<span class="small text-muted">/100</span></h2>
+                    <p class="text-muted">Good, but could be improved</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Optimization Opportunities</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="nav nav-tabs mb-4" id="optimizationTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance-pane" type="button" role="tab" aria-controls="performance-pane" aria-selected="true">
+                                Performance
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="readability-tab" data-bs-toggle="tab" data-bs-target="#readability-pane" type="button" role="tab" aria-controls="readability-pane" aria-selected="false">
+                                Readability
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="memory-tab" data-bs-toggle="tab" data-bs-target="#memory-pane" type="button" role="tab" aria-controls="memory-pane" aria-selected="false">
+                                Memory Usage
+                            </button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="optimizationTabContent">
+                        <div class="tab-pane fade show active" id="performance-pane" role="tabpanel" aria-labelledby="performance-tab">
+                            <div class="report-card mb-3">
+                                <div class="report-card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-info me-2">Performance</span>
+                                        <span class="badge bg-danger">High Impact</span>
+                                    </div>
+                                    <span class="text-muted">Line 30</span>
+                                </div>
+                                <div class="report-card-body">
+                                    <h5 class="mb-3">{{ scan.optimizations[0].message }}</h5>
+                                    <pre class="bg-light p-3 rounded"><code>for i in range(len(items)):
+    for j in range(len(items)):
+        # O(n²) operation</code></pre>
+                                    <div class="mt-3">
+                                        <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                        <p>{{ scan.optimizations[0].suggestion }}</p>
+                                        <pre class="bg-light p-3 rounded"><code>items_list = list(comprehension) # O(n) operation</code></pre>
+                                    </div>
+                                    <div class="mt-3">
+                                        <h6 class="text-primary"><i class="fas fa-tachometer-alt me-2"></i> Performance Impact:</h6>
+                                        <p>This change could reduce the time complexity from O(n²) to O(n), potentially resulting in a 10x speed improvement for large datasets.</p>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <button class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-check me-1"></i> Apply Fix
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-times me-1"></i> Ignore
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="readability-pane" role="tabpanel" aria-labelledby="readability-tab">
+                            <div class="report-card mb-3">
+                                <div class="report-card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-info me-2">Readability</span>
+                                        <span class="badge bg-warning">Medium Impact</span>
+                                    </div>
+                                    <span class="text-muted">Line 45</span>
+                                </div>
+                                <div class="report-card-body">
+                                    <h5 class="mb-3">Variable names are not descriptive</h5>
+                                    <pre class="bg-light p-3 rounded"><code>def p(a, b, c):
+    d = a + b
+    return d * c</code></pre>
+                                    <div class="mt-3">
+                                        <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                        <p>Use descriptive variable and function names to improve code readability.</p>
+                                        <pre class="bg-light p-3 rounded"><code>def calculate_total(price, tax_rate, quantity):
+    total_price = price + tax_rate
+    return total_price * quantity</code></pre>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <button class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-check me-1"></i> Apply Fix
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-times me-1"></i> Ignore
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="tab-pane fade" id="memory-pane" role="tabpanel" aria-labelledby="memory-tab">
+                            <div class="report-card mb-3">
+                                <div class="report-card-header d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <span class="badge bg-info me-2">Memory</span>
+                                        <span class="badge bg-warning">Medium Impact</span>
+                                    </div>
+                                    <span class="text-muted">Line 60</span>
+                                </div>
+                                <div class="report-card-body">
+                                    <h5 class="mb-3">Large data structure created unnecessarily</h5>
+                                    <pre class="bg-light p-3 rounded"><code>data_copy = [x for x in large_dataset]
+for item in data_copy:
+    process(item)</code></pre>
+                                    <div class="mt-3">
+                                        <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                        <p>Use generators or iterators instead of creating a full copy of large data structures when you only need to iterate through them once.</p>
+                                        <pre class="bg-light p-3 rounded"><code>for item in large_dataset:
+    process(item)</code></pre>
+                                    </div>
+                                    <div class="mt-3">
+                                        <h6 class="text-primary"><i class="fas fa-memory me-2"></i> Memory Impact:</h6>
+                                        <p>This change could reduce memory usage by approximately 50MB for the current dataset size.</p>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-3">
+                                        <button class="btn btn-sm btn-outline-primary me-2">
+                                            <i class="fas fa-check me-1"></i> Apply Fix
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary">
+                                            <i class="fas fa-times me-1"></i> Ignore
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Optimized Code Preview</h5>
+                </div>
+                <div class="card-body">
+                    <div class="code-editor">
+                        <div class="code-editor-header">
+                            <span>{{ scan.filename }}</span>
+                            <div>
+                                <button class="btn btn-sm btn-outline-light">
+                                    <i class="fas fa-download me-1"></i> Download
+                                </button>
+                            </div>
+                        </div>
+                        <div class="code-editor-body">
+                            <pre><code># Optimized code would be shown here
+def optimized_function():
+    # This is an example of how the optimized code would look
+    # after applying all the suggested changes
+    
+    items = get_items()
+    
+    # Using list comprehension instead of nested loops
+    result = [process(item) for item in items if is_valid(item)]
+    
+    return result</code></pre>
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4 text-center">
+                        <button class="btn btn-primary">
+                            <i class="fas fa-check-circle me-2"></i> Apply All Optimizations
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const ctx = document.getElementById('qualityChart').getContext('2d');
+        const qualityChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                datasets: [{
+                    data: [73, 27],
+                    backgroundColor: [
+                        '#4a90e2',
+                        '#e9ecef'
+                    ],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                cutout: '75%',
+                responsive: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        enabled: false
+                    }
+                }
+            }
+        });
+    });
+</script>
+{% endblock %} 

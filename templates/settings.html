@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - AI Code Reviewer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">Account Settings</h1>
+            <p class="lead">Manage your profile and preferences.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3 mb-4 mb-md-0">
+            <div class="list-group">
+                <a href="#profile" class="list-group-item list-group-item-action active" data-bs-toggle="list">
+                    <i class="fas fa-user me-2"></i> Profile
+                </a>
+                <a href="#integrations" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-plug me-2"></i> Integrations
+                </a>
+                <a href="#preferences" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-sliders-h me-2"></i> Preferences
+                </a>
+                <a href="#notifications" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-bell me-2"></i> Notifications
+                </a>
+                <a href="#security" class="list-group-item list-group-item-action" data-bs-toggle="list">
+                    <i class="fas fa-shield-alt me-2"></i> Security
+                </a>
+            </div>
+        </div>
+        
+        <div class="col-md-9">
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="profile">
+                    <div class="settings-card">
+                        <h3>Profile Information</h3>
+                        <form method="POST" action="{{ url_for('main.settings') }}">
+                            <div class="row mb-3">
+                                <div class="col text-center mb-4">
+                                    <div class="avatar-wrapper mx-auto" style="width: 120px; height: 120px; overflow: hidden; border-radius: 50%; background-color: #e9ecef; display: flex; align-items: center; justify-content: center;">
+                                        <i class="fas fa-user fa-4x text-secondary"></i>
+                                    </div>
+                                    <div class="mt-2">
+                                        <button type="button" class="btn btn-sm btn-outline-primary">Change Photo</button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label for="name" class="form-label">Full Name</label>
+                                    <input type="text" class="form-control" id="name" name="name" value="{{ user.name if user.name else '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">Email Address</label>
+                                    <input type="email" class="form-control" id="email" value="{{ user_id if user_id else '' }}" disabled>
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="bio" class="form-label">Bio</label>
+                                <textarea class="form-control" id="bio" name="bio" rows="3">{{ user.bio if user.bio else '' }}</textarea>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6 mb-3 mb-md-0">
+                                    <label for="job_title" class="form-label">Job Title</label>
+                                    <input type="text" class="form-control" id="job_title" name="job_title" value="{{ user.job_title if user.job_title else '' }}">
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="company" class="form-label">Company</label>
+                                    <input type="text" class="form-control" id="company" name="company" value="{{ user.company if user.company else '' }}">
+                                </div>
+                            </div>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="integrations">
+                    <div class="settings-card">
+                        <h3>External Integrations</h3>
+                        
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h5 class="mb-1"><i class="fab fa-github me-2"></i> GitHub</h5>
+                                    <p class="mb-0 text-muted small">Connect your GitHub account to analyze repositories directly.</p>
+                                </div>
+                                <div>
+                                    {% if user.github_link %}
+                                    <button class="btn btn-outline-danger">Disconnect</button>
+                                    {% else %}
+                                    <button class="btn btn-outline-primary">Connect</button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            {% if user.github_link %}
+                            <div class="alert alert-success d-flex align-items-center" role="alert">
+                                <i class="fas fa-check-circle me-2"></i>
+                                <div>
+                                    Connected as <strong>{{ user.github_link }}</strong>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h5 class="mb-1"><i class="fab fa-gitlab me-2"></i> GitLab</h5>
+                                    <p class="mb-0 text-muted small">Connect your GitLab account to analyze repositories directly.</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-primary">Connect</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h5 class="mb-1"><i class="fab fa-slack me-2"></i> Slack</h5>
+                                    <p class="mb-0 text-muted small">Get analysis notifications directly in your Slack workspace.</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-primary">Connect</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h5 class="mb-1"><i class="fab fa-jira me-2"></i> Jira</h5>
+                                    <p class="mb-0 text-muted small">Create Jira issues from code analysis results.</p>
+                                </div>
+                                <div>
+                                    <button class="btn btn-outline-primary">Connect</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="preferences">
+                    <div class="settings-card">
+                        <h3>Interface Preferences</h3>
+                        
+                        <form method="POST" action="{{ url_for('main.settings') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Theme</label>
+                                <div class="d-flex">
+                                    <div class="form-check me-4">
+                                        <input class="form-check-input" type="radio" name="theme" id="theme-light" value="light" {% if not user.theme or user.theme == 'light' %}checked{% endif %}>
+                                        <label class="form-check-label" for="theme-light">
+                                            Light
+                                        </label>
+                                    </div>
+                                    <div class="form-check me-4">
+                                        <input class="form-check-input" type="radio" name="theme" id="theme-dark" value="dark" {% if user.theme == 'dark' %}checked{% endif %}>
+                                        <label class="form-check-label" for="theme-dark">
+                                            Dark
+                                        </label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" name="theme" id="theme-system" value="system" {% if user.theme == 'system' %}checked{% endif %}>
+                                        <label class="form-check-label" for="theme-system">
+                                            System Default
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="default_language" class="form-label">Default Programming Language</label>
+                                <select class="form-select" id="default_language" name="default_language">
+                                    <option value="auto" {% if not user.default_language or user.default_language == 'auto' %}selected{% endif %}>Auto-detect</option>
+                                    <option value="python" {% if user.default_language == 'python' %}selected{% endif %}>Python</option>
+                                    <option value="javascript" {% if user.default_language == 'javascript' %}selected{% endif %}>JavaScript</option>
+                                    <option value="java" {% if user.default_language == 'java' %}selected{% endif %}>Java</option>
+                                    <option value="html" {% if user.default_language == 'html' %}selected{% endif %}>HTML</option>
+                                    <option value="css" {% if user.default_language == 'css' %}selected{% endif %}>CSS</option>
+                                    <option value="cpp" {% if user.default_language == 'cpp' %}selected{% endif %}>C++</option>
+                                </select>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label for="analysis_depth" class="form-label">Analysis Depth</label>
+                                <select class="form-select" id="analysis_depth" name="analysis_depth">
+                                    <option value="fast" {% if user.analysis_depth == 'fast' %}selected{% endif %}>Fast (less comprehensive)</option>
+                                    <option value="balanced" {% if not user.analysis_depth or user.analysis_depth == 'balanced' %}selected{% endif %}>Balanced</option>
+                                    <option value="deep" {% if user.analysis_depth == 'deep' %}selected{% endif %}>Deep (more comprehensive)</option>
+                                </select>
+                                <div class="form-text">
+                                    Deeper analysis may take longer to complete.
+                                </div>
+                            </div>
+
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="auto_fix" name="auto_fix" value="1" {% if user.auto_fix %}checked{% endif %}>
+                                <label class="form-check-label" for="auto_fix">Auto-apply simple fixes</label>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="show_explanations" name="show_explanations" value="1" {% if not user.show_explanations or user.show_explanations %}checked{% endif %}>
+                                <label class="form-check-label" for="show_explanations">Show detailed explanations</label>
+                            </div>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <button type="submit" class="btn btn-primary">Save Preferences</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="notifications">
+                    <div class="settings-card">
+                        <h3>Notification Settings</h3>
+                        
+                        <form method="POST" action="{{ url_for('main.settings') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Email Notifications</label>
+                                
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="notify_analysis_complete" name="notify_analysis_complete" value="1" checked>
+                                    <label class="form-check-label" for="notify_analysis_complete">
+                                        Analysis completion
+                                    </label>
+                                </div>
+                                
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="notify_critical_issues" name="notify_critical_issues" value="1" checked>
+                                    <label class="form-check-label" for="notify_critical_issues">
+                                        Critical security issues
+                                    </label>
+                                </div>
+                                
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="notify_news" name="notify_news" value="1">
+                                    <label class="form-check-label" for="notify_news">
+                                        New features and updates
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="form-check form-switch mb-3">
+                                <input class="form-check-input" type="checkbox" id="browser_notifications" name="browser_notifications" value="1" checked>
+                                <label class="form-check-label" for="browser_notifications">
+                                    Enable browser notifications
+                                </label>
+                            </div>
+
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                <button type="submit" class="btn btn-primary">Save Notification Settings</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <div class="tab-pane fade" id="security">
+                    <div class="settings-card">
+                        <h3>Security Settings</h3>
+                        
+                        <div class="mb-4">
+                            <h5>Change Password</h5>
+                            <form method="POST" action="{{ url_for('main.settings') }}">
+                                <div class="mb-3">
+                                    <label for="current_password" class="form-label">Current Password</label>
+                                    <input type="password" class="form-control" id="current_password" name="current_password" required>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="new_password" class="form-label">New Password</label>
+                                    <input type="password" class="form-control" id="new_password" name="new_password" required>
+                                    <div class="form-text">
+                                        Password must be at least 8 characters long and include a mix of letters, numbers, and symbols.
+                                    </div>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="confirm_password" class="form-label">Confirm New Password</label>
+                                    <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
+                                </div>
+                                
+                                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                    <button type="submit" class="btn btn-primary">Update Password</button>
+                                </div>
+                            </form>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div class="mb-4">
+                            <h5>Two-Factor Authentication</h5>
+                            <p class="text-muted">Add an extra layer of security to your account.</p>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                                <button class="btn btn-outline-primary">
+                                    <i class="fas fa-shield-alt me-2"></i> Enable 2FA
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        
+                        <div>
+                            <h5 class="text-danger">Danger Zone</h5>
+                            <p class="text-muted">Permanently delete your account and all your data.</p>
+                            
+                            <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                                <button class="btn btn-outline-danger">
+                                    <i class="fas fa-trash-alt me-2"></i> Delete Account
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
