@@ -1,0 +1,77 @@
+/* Dashboard Styles */
+.stats-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+
+.stats-card:hover {
+    transform: translateY(-5px);
+}
+
+.stats-card .icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 15px;
+    background: #f8f9fa;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #0d6efd;
+}
+
+.stats-card h3 {
+    font-size: 28px;
+    margin-bottom: 5px;
+    color: #212529;
+}
+
+.stats-card p {
+    margin: 0;
+    color: #6c757d;
+}
+
+/* Chart Cards */
+.card {
+    border: none;
+    border-radius: 10px;
+    margin-bottom: 20px;
+}
+
+.card-header {
+    background: #fff;
+    border-bottom: 1px solid rgba(0,0,0,0.1);
+    padding: 15px 20px;
+}
+
+.card-title {
+    color: #212529;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.card-body {
+    padding: 20px;
+}
+
+/* Activity Heatmap */
+#heatmapChart {
+    background: #fff;
+    border-radius: 8px;
+    padding: 10px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+    .stats-card {
+        margin-bottom: 20px;
+    }
+    
+    .card {
+        margin-bottom: 20px;
+    }
+} 

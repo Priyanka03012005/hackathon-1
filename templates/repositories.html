@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Repositories - AI Code Reviewer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Repositories</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="mb-0">Manage Repositories</h1>
+                <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRepoModal">
+                    <i class="fas fa-plus me-2"></i> Add Repository
+                </button>
+            </div>
+            <p class="text-muted">Manage your GitHub repositories and local projects for code review.</p>
+        </div>
+    </div>
+
+    {% if repositories %}
+        <div class="row">
+            {% for repo in repositories %}
+            <div class="col-md-6 col-lg-4 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="card-title mb-0">
+                                <i class="fab fa-github me-2"></i>{{ repo.name }}
+                            </h5>
+                            <div class="dropdown">
+                                <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown">
+                                    <i class="fas fa-ellipsis-v"></i>
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li>
+                                        <button class="dropdown-item" onclick="syncRepository('{{ repo.name }}')">
+                                            <i class="fas fa-sync me-2"></i>Sync with GitHub
+                                        </button>
+                                    </li>
+                                    <li>
+                                        <button class="dropdown-item" onclick="editRepository('{{ repo.name }}')">
+                                            <i class="fas fa-edit me-2"></i>Edit Settings
+                                        </button>
+                                    </li>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li>
+                                        <button class="dropdown-item text-danger" onclick="removeRepository('{{ repo.name }}')">
+                                            <i class="fas fa-trash me-2"></i>Remove
+                                        </button>
+                                    </li>
+                                </ul>
+                            </div>
+                        </div>
+                        <p class="card-text small text-muted mb-2">
+                            <i class="fas fa-link me-1"></i>{{ repo.url }}
+                        </p>
+                        <p class="card-text small text-muted mb-0">
+                            <i class="fas fa-clock me-1"></i>Last synced: {{ repo.last_synced.strftime('%Y-%m-%d %H:%M') }}
+                        </p>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge {% if repo.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                {{ 'Active' if repo.is_active else 'Inactive' }}
+                            </span>
+                            <button class="btn btn-sm btn-primary" onclick="analyzeRepository('{{ repo.name }}')">
+                                <i class="fas fa-code me-1"></i>Analyze
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fab fa-github fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No repositories found</h5>
+                        <p class="text-muted mb-3">Add your first repository to start analyzing code across multiple projects.</p>
+                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addRepoModal">
+                            <i class="fas fa-plus me-2"></i> Add Repository
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Add Repository Modal -->
+<div class="modal fade" id="addRepoModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add Repository</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addRepoForm">
+                    <div class="mb-3">
+                        <label for="repoName" class="form-label">Repository Name</label>
+                        <input type="text" class="form-control" id="repoName" required>
+                        <div class="form-text">Format: username/repository</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="repoUrl" class="form-label">Repository URL</label>
+                        <input type="url" class="form-control" id="repoUrl" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="githubToken" class="form-label">GitHub Token (Optional)</label>
+                        <input type="password" class="form-control" id="githubToken">
+                        <div class="form-text">Required for private repositories</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" onclick="submitAddRepository()">Add Repository</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function syncRepository(name) {
+    fetch(`/api/repositories/${name}/sync`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('Error syncing repository: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error syncing repository: ' + error);
+    });
+}
+
+function removeRepository(name) {
+    if (confirm('Are you sure you want to remove this repository?')) {
+        fetch(`/api/repositories/${name}`, {
+            method: 'DELETE'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                location.reload();
+            } else {
+                alert('Error removing repository: ' + data.error);
+            }
+        })
+        .catch(error => {
+            alert('Error removing repository: ' + error);
+        });
+    }
+}
+
+function submitAddRepository() {
+    const data = {
+        name: document.getElementById('repoName').value,
+        url: document.getElementById('repoUrl').value,
+        github_token: document.getElementById('githubToken').value || undefined
+    };
+
+    fetch('/api/repositories', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            location.reload();
+        } else {
+            alert('Error adding repository: ' + data.error);
+        }
+    })
+    .catch(error => {
+        alert('Error adding repository: ' + error);
+    });
+}
+
+function analyzeRepository(name) {
+    window.location.href = `/upload?repository=${name}`;
+}
+</script>
+{% endblock %} 

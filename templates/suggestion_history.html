@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Suggestion History - AI Code Reviewer{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Suggestion History</li>
+                </ol>
+            </nav>
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h1 class="mb-0">Suggestion History</h1>
+                <form action="{{ url_for('main.clear_history') }}" method="POST" class="d-inline">
+                    <button type="submit" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to clear your suggestion history?')">
+                        <i class="fas fa-trash me-2"></i> Clear History
+                    </button>
+                </form>
+            </div>
+            <p class="text-muted">View and manage your code review suggestions from the past 30 days.</p>
+        </div>
+    </div>
+
+    {% if history %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Type</th>
+                                        <th>Message</th>
+                                        <th>Severity</th>
+                                        <th>Line</th>
+                                        <th>Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for suggestion in history|sort(attribute='timestamp', reverse=true) %}
+                                    <tr>
+                                        <td>
+                                            {% if suggestion.type == 'bug' %}
+                                                <span class="badge bg-danger">Bug</span>
+                                            {% elif suggestion.type == 'security' %}
+                                                <span class="badge bg-warning">Security</span>
+                                            {% elif suggestion.type == 'optimization' %}
+                                                <span class="badge bg-info">Optimization</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ suggestion.type }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ suggestion.message }}</td>
+                                        <td>
+                                            {% if suggestion.severity == 'critical' %}
+                                                <span class="badge bg-danger">Critical</span>
+                                            {% elif suggestion.severity == 'high' %}
+                                                <span class="badge bg-warning">High</span>
+                                            {% elif suggestion.severity == 'medium' %}
+                                                <span class="badge bg-info">Medium</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary">{{ suggestion.severity }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ suggestion.line if suggestion.line else '-' }}</td>
+                                        <td>{{ suggestion.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-12">
+                <div class="card shadow-sm">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-history fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No suggestion history found</h5>
+                        <p class="text-muted mb-0">Your suggestion history will appear here after you analyze some code.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %} 

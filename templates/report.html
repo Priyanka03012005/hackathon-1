@@ -85,6 +85,11 @@
                                 Optimization <span class="badge bg-info ms-1">{{ scan.optimization_count }}</span>
                             </button>
                         </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="context-tab" data-bs-toggle="tab" data-bs-target="#context-pane" type="button" role="tab" aria-controls="context-pane" aria-selected="false">
+                                Project Context <span class="badge bg-success ms-1">{{ scan.context_analysis.suggestions|length + scan.context_analysis.warnings|length }}</span>
+                            </button>
+                        </li>
                     </ul>
                 </div>
                 <div class="card-body">
@@ -261,6 +266,76 @@
                                 <div class="text-center py-5">
                                     <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
                                     <p class="lead">No optimization opportunities found! Your code is already optimized.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="tab-pane fade" id="context-pane" role="tabpanel" aria-labelledby="context-tab">
+                            {% if scan.context_analysis %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Project Structure Analysis</h5>
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <p class="mb-2"><strong>File Type:</strong> {{ scan.context_analysis.context.file_type }}</p>
+                                            <p class="mb-2"><strong>Entry Point:</strong> {% if scan.context_analysis.context.is_entry_point %}Yes{% else %}No{% endif %}</p>
+                                            <p class="mb-2"><strong>Dependencies:</strong> {{ scan.context_analysis.context.dependencies|length }}</p>
+                                            <p class="mb-0"><strong>Dependent Files:</strong> {{ scan.context_analysis.context.dependent_files|length }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {% if scan.context_analysis.suggestions %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Context-Aware Suggestions</h5>
+                                    {% for suggestion in scan.context_analysis.suggestions %}
+                                    <div class="report-card mb-3">
+                                        <div class="report-card-header">
+                                            <span class="badge bg-info me-2">{{ suggestion.type }}</span>
+                                            <span class="text-muted">Severity: {{ suggestion.severity }}</span>
+                                        </div>
+                                        <div class="report-card-body">
+                                            <p class="mb-0">{{ suggestion.message }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                {% if scan.context_analysis.warnings %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Project Structure Warnings</h5>
+                                    {% for warning in scan.context_analysis.warnings %}
+                                    <div class="report-card mb-3">
+                                        <div class="report-card-header">
+                                            <span class="badge bg-warning me-2">{{ warning.type }}</span>
+                                            <span class="text-muted">Severity: {{ warning.severity }}</span>
+                                        </div>
+                                        <div class="report-card-body">
+                                            <p class="mb-0">{{ warning.message }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+
+                                {% if scan.context_analysis.improvements %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Suggested Improvements</h5>
+                                    {% for improvement in scan.context_analysis.improvements %}
+                                    <div class="report-card mb-3">
+                                        <div class="report-card-header">
+                                            <span class="badge bg-success me-2">Improvement</span>
+                                        </div>
+                                        <div class="report-card-body">
+                                            <p class="mb-0">{{ improvement }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <p class="mb-0">No context analysis available for this file.</p>
                                 </div>
                             {% endif %}
                         </div>

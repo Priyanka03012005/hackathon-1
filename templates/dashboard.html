@@ -2,6 +2,10 @@
 
 {% block title %}Dashboard - AI Code Reviewer{% endblock %}
 
+{% block extra_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="container py-5">
     <div class="row mb-4">
@@ -16,6 +20,7 @@
         </div>
     </div>
 
+    <!-- Stats Cards -->
     <div class="row mb-5">
         <div class="col-md-3">
             <div class="stats-card text-center">
@@ -55,8 +60,63 @@
         </div>
     </div>
 
-    <div class="row">
+    <!-- Main Charts Row -->
+    <div class="row mb-5">
+        <!-- Trend Chart -->
         <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Analysis Trends (Last 7 Days)</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="trendChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Language Distribution -->
+        <div class="col-md-4">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Language Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="languageChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Quality Metrics and Activity Heatmap -->
+    <div class="row mb-5">
+        <!-- Code Quality Radar Chart -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Code Quality Metrics</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="qualityChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Activity Heatmap -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Activity Heatmap</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="heatmapChart" height="300"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Scans Table -->
+    <div class="row">
+        <div class="col-12">
             <div class="card shadow-sm">
                 <div class="card-header">
                     <h5 class="card-title mb-0">Recent Scans</h5>
@@ -109,76 +169,185 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card shadow-sm mb-4">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Issue Types</h5>
-                </div>
-                <div class="card-body">
-                    {% if stats.total_scans > 0 %}
-                    <canvas id="issueChart" width="100%" height="200"></canvas>
-                    {% else %}
-                    <div class="text-center py-5">
-                        <p class="text-muted">No data available</p>
-                    </div>
-                    {% endif %}
-                </div>
-            </div>
-            
-            <div class="card shadow-sm">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">Quick Actions</h5>
-                </div>
-                <div class="card-body">
-                    <div class="d-grid gap-2">
-                        <a href="{{ url_for('main.upload') }}" class="btn btn-outline-primary">
-                            <i class="fas fa-upload me-2"></i> Upload New Code
-                        </a>
-                        <a href="{{ url_for('main.code_completion') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-magic me-2"></i> Code Completion
-                        </a>
-                        <a href="{{ url_for('main.settings') }}" class="btn btn-outline-secondary">
-                            <i class="fas fa-cog me-2"></i> Settings
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-{% if stats.total_scans > 0 %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const ctx = document.getElementById('issueChart').getContext('2d');
-        const issueChart = new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: ['Bugs', 'Security Issues', 'Optimizations'],
-                datasets: [{
-                    data: [{{ stats.bugs_found }}, {{ stats.security_issues }}, {{ stats.optimizations }}],
-                    backgroundColor: [
-                        '#dc3545',  // Red for bugs
-                        '#ffc107',  // Yellow for security
-                        '#17a2b8'   // Blue for optimizations
-                    ],
-                    borderWidth: 0
-                }]
+document.addEventListener('DOMContentLoaded', function() {
+    // Trend Chart
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    new Chart(trendCtx, {
+        type: 'line',
+        data: {
+            labels: {{ trend_data.dates | tojson }},
+            datasets: [
+                {
+                    label: 'Scans',
+                    data: {{ trend_data.scans | tojson }},
+                    borderColor: '#0d6efd',
+                    tension: 0.4
+                },
+                {
+                    label: 'Bugs',
+                    data: {{ trend_data.bugs | tojson }},
+                    borderColor: '#dc3545',
+                    tension: 0.4
+                },
+                {
+                    label: 'Security Issues',
+                    data: {{ trend_data.security | tojson }},
+                    borderColor: '#ffc107',
+                    tension: 0.4
+                },
+                {
+                    label: 'Optimizations',
+                    data: {{ trend_data.optimizations | tojson }},
+                    borderColor: '#198754',
+                    tension: 0.4
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'top'
+                }
             },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom',
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Language Distribution Chart
+    const languageCtx = document.getElementById('languageChart').getContext('2d');
+    new Chart(languageCtx, {
+        type: 'doughnut',
+        data: {
+            labels: {{ language_stats.keys() | list | tojson }},
+            datasets: [{
+                data: {{ language_stats.values() | list | tojson }},
+                backgroundColor: [
+                    '#0d6efd',
+                    '#dc3545',
+                    '#198754',
+                    '#ffc107',
+                    '#6f42c1'
+                ]
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'bottom'
+                }
+            }
+        }
+    });
+
+    // Code Quality Radar Chart
+    const qualityCtx = document.getElementById('qualityChart').getContext('2d');
+    new Chart(qualityCtx, {
+        type: 'radar',
+        data: {
+            labels: ['Complexity', 'Maintainability', 'Security', 'Performance', 'Reliability'],
+            datasets: [{
+                label: 'Code Quality Metrics',
+                data: [
+                    {{ quality_metrics.complexity }},
+                    {{ quality_metrics.maintainability }},
+                    {{ quality_metrics.security }},
+                    {{ quality_metrics.performance }},
+                    {{ quality_metrics.reliability }}
+                ],
+                backgroundColor: 'rgba(13, 110, 253, 0.2)',
+                borderColor: '#0d6efd',
+                pointBackgroundColor: '#0d6efd',
+                pointBorderColor: '#fff',
+                pointHoverBackgroundColor: '#fff',
+                pointHoverBorderColor: '#0d6efd'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                r: {
+                    beginAtZero: true,
+                    max: 100
+                }
+            }
+        }
+    });
+
+    // Activity Heatmap
+    const heatmapCtx = document.getElementById('heatmapChart').getContext('2d');
+    new Chart(heatmapCtx, {
+        type: 'matrix',
+        data: {
+            datasets: [{
+                label: 'Activity Heatmap',
+                data: {{ activity_data.data | tojson }},
+                backgroundColor: function(context) {
+                    const value = context.dataset.data[context.dataIndex];
+                    const alpha = value / Math.max(...activity_data.data.flat());
+                    return `rgba(13, 110, 253, ${alpha})`;
+                },
+                width: function({ chart }) {
+                    return (chart.chartArea.width / 24) - 1;
+                },
+                height: function({ chart }) {
+                    return (chart.chartArea.height / 7) - 1;
+                }
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'linear',
+                    offset: true,
+                    min: 0,
+                    max: 23,
+                    ticks: {
+                        stepSize: 1,
+                        source: 'data',
+                        autoSkip: false
                     }
                 },
-                cutout: '70%'
+                y: {
+                    type: 'category',
+                    labels: {{ activity_data.days | tojson }},
+                    offset: true,
+                    grid: {
+                        display: false
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    callbacks: {
+                        title: function() {
+                            return '';
+                        },
+                        label: function(context) {
+                            const v = context.dataset.data[context.dataIndex];
+                            return `${v} activities`;
+                        }
+                    }
+                }
             }
-        });
+        }
     });
+});
 </script>
-{% endif %}
 {% endblock %} 

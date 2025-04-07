@@ -2,7 +2,12 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
+from app.context_analyzer import analyze_code_with_context
+from app.suggestion_history import suggestion_history
+from app.repo_manager import repo_manager
+from app.ai_model import code_analyzer
+from app.ai_optimizer import ai_optimizer
 
 main_bp = Blueprint('main', __name__)
 
@@ -66,6 +71,7 @@ def dashboard():
     user = users.get(session['user_id'])
     user_history = code_history.get(session['user_id'], [])
     
+    # Basic stats
     stats = {
         'total_scans': len(user_history),
         'bugs_found': sum(scan.get('bugs_count', 0) for scan in user_history),
@@ -73,7 +79,61 @@ def dashboard():
         'optimizations': sum(scan.get('optimization_count', 0) for scan in user_history)
     }
     
-    return render_template('dashboard.html', user=user, stats=stats, recent_scans=user_history[:5])
+    # Prepare data for trend chart (last 7 days)
+    today = datetime.now()
+    dates = [(today - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(6, -1, -1)]
+    trend_data = {
+        'dates': dates,
+        'scans': [0] * 7,
+        'bugs': [0] * 7,
+        'security': [0] * 7,
+        'optimizations': [0] * 7
+    }
+    
+    for scan in user_history:
+        scan_date = scan['timestamp'].strftime('%Y-%m-%d')
+        if scan_date in dates:
+            idx = dates.index(scan_date)
+            trend_data['scans'][idx] += 1
+            trend_data['bugs'][idx] += scan.get('bugs_count', 0)
+            trend_data['security'][idx] += scan.get('security_count', 0)
+            trend_data['optimizations'][idx] += scan.get('optimization_count', 0)
+    
+    # Prepare data for language distribution
+    language_stats = {}
+    for scan in user_history:
+        lang = scan.get('language', 'Unknown')
+        language_stats[lang] = language_stats.get(lang, 0) + 1
+    
+    # Prepare data for code quality metrics
+    quality_metrics = {
+        'complexity': sum(scan.get('complexity_score', 0) for scan in user_history) / max(len(user_history), 1),
+        'maintainability': sum(scan.get('maintainability_score', 0) for scan in user_history) / max(len(user_history), 1),
+        'security': sum(scan.get('security_score', 0) for scan in user_history) / max(len(user_history), 1),
+        'performance': sum(scan.get('performance_score', 0) for scan in user_history) / max(len(user_history), 1),
+        'reliability': sum(scan.get('reliability_score', 0) for scan in user_history) / max(len(user_history), 1)
+    }
+    
+    # Prepare data for activity heatmap
+    activity_data = {
+        'hours': list(range(24)),
+        'days': ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+        'data': [[0] * 24 for _ in range(7)]  # 7 days x 24 hours
+    }
+    
+    for scan in user_history:
+        day = scan['timestamp'].weekday()
+        hour = scan['timestamp'].hour
+        activity_data['data'][day][hour] += 1
+    
+    return render_template('dashboard.html', 
+                         user=user, 
+                         stats=stats, 
+                         recent_scans=user_history[:5],
+                         trend_data=trend_data,
+                         language_stats=language_stats,
+                         quality_metrics=quality_metrics,
+                         activity_data=activity_data)
 
 @main_bp.route('/upload', methods=['GET', 'POST'])
 def upload():
@@ -96,39 +156,125 @@ def upload():
             flash('No code provided')
             return redirect(url_for('main.upload'))
         
-        # Process the code with AI (mock for now)
+        # Process the code with AI and context awareness
         global current_id
         scan_id = current_id
         current_id += 1
         
-        # Mock analysis results
-        analysis = {
-            'id': scan_id,
-            'filename': filename,
-            'language': language,
-            'timestamp': datetime.now(),
-            'bugs': [
-                {'line': 10, 'severity': 'high', 'message': 'Potential null reference', 'suggestion': 'Add null check'},
-                {'line': 25, 'severity': 'medium', 'message': 'Unused variable', 'suggestion': 'Remove or use the variable'}
-            ],
-            'security': [
-                {'line': 15, 'severity': 'critical', 'message': 'SQL Injection vulnerability', 'suggestion': 'Use parameterized queries'}
-            ],
-            'optimizations': [
-                {'line': 30, 'severity': 'info', 'message': 'Inefficient loop', 'suggestion': 'Use list comprehension'}
-            ],
-            'bugs_count': 2,
-            'security_count': 1,
-            'optimization_count': 1
-        }
-        
-        # Save to history
-        if session['user_id'] not in code_history:
-            code_history[session['user_id']] = []
-        
-        code_history[session['user_id']].append(analysis)
-        
-        return redirect(url_for('main.report', scan_id=scan_id))
+        try:
+            # Use the system's temp directory instead of app directory
+            import tempfile
+            temp_dir = tempfile.gettempdir()
+            temp_file_path = os.path.join(temp_dir, f'ai_code_reviewer_{scan_id}_{filename}')
+            
+            # Write the code to the temporary file
+            with open(temp_file_path, 'w', encoding='utf-8') as f:
+                f.write(code_content)
+            
+            # Get project root (using the temp directory as project root)
+            project_root = temp_dir
+            
+            # Perform AI-based code analysis
+            ai_analysis = code_analyzer.analyze_code(code_content, filename)
+            
+            # Perform context-aware analysis
+            context_analysis = analyze_code_with_context(code_content, temp_file_path, project_root)
+            
+            # Combine all suggestions
+            all_suggestions = []
+            
+            # Add bugs from AI analysis
+            for bug in ai_analysis.get('bugs', []):
+                all_suggestions.append({
+                    'type': 'bug',
+                    'message': bug['message'],
+                    'line': bug['line'],
+                    'severity': bug['severity']
+                })
+            
+            # Add security issues from AI analysis
+            for security in ai_analysis.get('security', []):
+                all_suggestions.append({
+                    'type': 'security',
+                    'message': security['message'],
+                    'line': security['line'],
+                    'severity': security['severity']
+                })
+            
+            # Add optimizations from AI analysis
+            for optimization in ai_analysis.get('optimizations', []):
+                all_suggestions.append({
+                    'type': 'optimization',
+                    'message': optimization['message'],
+                    'line': optimization['line'],
+                    'severity': optimization['severity']
+                })
+            
+            # Add context-aware suggestions
+            for suggestion in context_analysis.get('suggestions', []):
+                all_suggestions.append({
+                    'type': 'context',
+                    'message': suggestion['message'],
+                    'severity': suggestion['severity']
+                })
+            
+            # Filter out redundant suggestions
+            filtered_suggestions = suggestion_history.filter_redundant_suggestions(
+                session['user_id'], 
+                all_suggestions
+            )
+            
+            # Add new suggestions to history
+            suggestion_history.add_suggestions(session['user_id'], filtered_suggestions)
+            
+            # Organize filtered suggestions back into categories
+            bugs = [s for s in filtered_suggestions if s['type'] == 'bug']
+            security = [s for s in filtered_suggestions if s['type'] == 'security']
+            optimizations = [s for s in filtered_suggestions if s['type'] == 'optimization']
+            context_suggestions = [s for s in filtered_suggestions if s['type'] == 'context']
+            
+            # Combine with existing analysis
+            analysis = {
+                'id': scan_id,
+                'filename': filename,
+                'language': language,
+                'timestamp': datetime.now(),
+                'bugs': bugs,
+                'security': security,
+                'optimizations': optimizations,
+                'bugs_count': len(bugs),
+                'security_count': len(security),
+                'optimization_count': len(optimizations),
+                'complexity_score': ai_analysis.get('complexity_score', 0),
+                'maintainability_score': ai_analysis.get('maintainability_score', 0),
+                'security_score': ai_analysis.get('security_score', 0),
+                'performance_score': ai_analysis.get('performance_score', 0),
+                'reliability_score': ai_analysis.get('reliability_score', 0),
+                'context_analysis': {
+                    **context_analysis,
+                    'suggestions': context_suggestions
+                }
+            }
+            
+            # Save to history
+            if session['user_id'] not in code_history:
+                code_history[session['user_id']] = []
+            
+            code_history[session['user_id']].append(analysis)
+            
+            return redirect(url_for('main.report', scan_id=scan_id))
+            
+        except Exception as e:
+            flash(f'Error processing code: {str(e)}')
+            return redirect(url_for('main.upload'))
+            
+        finally:
+            # Clean up temporary file
+            try:
+                if os.path.exists(temp_file_path):
+                    os.remove(temp_file_path)
+            except Exception as e:
+                print(f'Error cleaning up temporary file: {str(e)}')
     
     return render_template('upload.html')
 
@@ -151,12 +297,57 @@ def optimization(scan_id):
     if 'user_id' not in session:
         return redirect(url_for('main.login'))
     
-    user_scans = code_history.get(session['user_id'], [])
-    scan = next((s for s in user_scans if s['id'] == scan_id), None)
+    # Find the scan in user's history
+    scan = None
+    for s in code_history.get(session['user_id'], []):
+        if s['id'] == scan_id:
+            scan = s
+            break
     
     if not scan:
         flash('Scan not found')
         return redirect(url_for('main.dashboard'))
+    
+    # Get the code content from the scan
+    code_content = scan.get('code_content', '')
+    
+    # Analyze code with AI optimizer
+    optimization_results = ai_optimizer.analyze_code(code_content, scan['filename'])
+    
+    # Update scan with optimization results
+    scan.update({
+        'optimizations': [],  # Clear existing optimizations
+        'performance_score': optimization_results['performance_score'],
+        'complexity_metrics': optimization_results['complexity_metrics']
+    })
+    
+    # Process each optimization result
+    for opt in optimization_results['optimizations']:
+        # Get the actual code snippet from the file
+        lines = code_content.split('\n')
+        line_number = opt['line']
+        if 1 <= line_number <= len(lines):
+            code_snippet = lines[line_number - 1].strip()
+            
+            # Create optimization entry with code snippet
+            optimization_entry = {
+                'message': opt['message'],
+                'line': line_number,
+                'severity': opt['severity'],
+                'code_snippet': code_snippet,
+                'suggestions': opt['suggestions'],
+                'fix': None
+            }
+            
+            # Add fix if available
+            if opt.get('fix'):
+                optimization_entry['fix'] = {
+                    'before': code_snippet,
+                    'after': opt['fix'].get('after', ''),
+                    'explanation': opt['fix'].get('explanation', '')
+                }
+            
+            scan['optimizations'].append(optimization_entry)
     
     return render_template('optimization.html', scan=scan)
 
@@ -206,4 +397,29 @@ def settings():
         
         flash('Settings updated successfully')
     
-    return render_template('settings.html', user=user) 
+    return render_template('settings.html', user=user)
+
+@main_bp.route('/suggestion-history')
+def suggestion_history_view():
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    
+    history = suggestion_history.get_suggestion_history(session['user_id'])
+    return render_template('suggestion_history.html', history=history)
+
+@main_bp.route('/clear-history', methods=['POST'])
+def clear_history():
+    if 'user_id' not in session:
+        return jsonify({'error': 'Not authenticated'}), 401
+    
+    suggestion_history.clear_history(session['user_id'])
+    flash('Suggestion history cleared successfully')
+    return redirect(url_for('main.suggestion_history_view'))
+
+@main_bp.route('/repositories')
+def repositories():
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    
+    repositories = repo_manager.list_repositories()
+    return render_template('repositories.html', repositories=repositories) 
