@@ -1,227 +1,348 @@
 {% extends "base.html" %}
 
-{% block title %}Analysis Report - AI Code Reviewer{% endblock %}
+{% block title %}Code Analysis Report - AI Code Reviewer{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
+<div class="container py-5">
     <div class="row mb-4">
         <div class="col">
-            <h2>Code Analysis Report</h2>
-            <p class="text-muted">File: {{ scan.filename }}</p>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('main.dashboard') }}">Dashboard</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Analysis Report</li>
+                </ol>
+            </nav>
+            <h1 class="mb-3">Analysis Report</h1>
+            <div class="d-flex align-items-center mb-3">
+                <span class="badge bg-secondary me-2">{{ scan.language }}</span>
+                <h5 class="mb-0 me-3">{{ scan.filename }}</h5>
+                <small class="text-muted">Analyzed on {{ scan.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('main.optimization', scan_id=scan.id) }}" class="btn btn-outline-primary me-2">
+                <i class="fas fa-tachometer-alt me-2"></i> Optimization
+            </a>
+            <a href="{{ url_for('main.upload') }}" class="btn btn-primary">
+                <i class="fas fa-upload me-2"></i> New Analysis
+            </a>
         </div>
     </div>
 
     <div class="row mb-4">
-        <div class="col">
-            <ul class="nav nav-tabs" id="issueTabs" role="tablist">
-                <li class="nav-item">
-                    <a class="nav-link active" id="all-tab" data-bs-toggle="tab" href="#all" role="tab">
-                        All Issues <span class="badge bg-secondary">{{ scan.total_issues }}</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="bugs-tab" data-bs-toggle="tab" href="#bugs" role="tab">
-                        Bugs <span class="badge bg-danger">{{ scan.bugs|length }}</span>
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" id="security-tab" data-bs-toggle="tab" href="#security" role="tab">
-                        Security <span class="badge bg-warning">{{ scan.security_issues|length }}</span>
-                    </a>
-                </li>
-            </ul>
+        <div class="col-md-4">
+            <div class="card shadow-sm mb-4">
+                <div class="card-body text-center">
+                    <h6 class="text-muted mb-2">Total Issues Found</h6>
+                    <h2 class="mb-0">{{ scan.bugs_count + scan.security_count + scan.optimization_count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4 text-center border-end">
+                            <h6 class="text-danger mb-2">Bugs</h6>
+                            <h3 class="mb-0">{{ scan.bugs_count }}</h3>
+                        </div>
+                        <div class="col-md-4 text-center border-end">
+                            <h6 class="text-warning mb-2">Security Issues</h6>
+                            <h3 class="mb-0">{{ scan.security_count }}</h3>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <h6 class="text-info mb-2">Optimizations</h6>
+                            <h3 class="mb-0">{{ scan.optimization_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-            <div class="tab-content mt-3" id="issueTabsContent">
-                <!-- All Issues Tab -->
-                <div class="tab-pane fade show active" id="all" role="tabpanel">
-                    {% for issue in scan.all_issues %}
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div>
-                                        <span class="badge {% if issue.type == 'bug' %}bg-danger{% else %}bg-warning{% endif %} me-2">
-                                            {{ issue.type|title }}
-                                        </span>
-                                        <span class="badge bg-{{ issue.severity }}">{{ issue.severity|title }}</span>
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <ul class="nav nav-tabs card-header-tabs" id="issueTab" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="all-tab" data-bs-toggle="tab" data-bs-target="#all-pane" type="button" role="tab" aria-controls="all-pane" aria-selected="true">
+                                All Issues <span class="badge bg-secondary ms-1">{{ scan.bugs_count + scan.security_count + scan.optimization_count }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="bugs-tab" data-bs-toggle="tab" data-bs-target="#bugs-pane" type="button" role="tab" aria-controls="bugs-pane" aria-selected="false">
+                                Bugs <span class="badge bg-danger ms-1">{{ scan.bugs_count }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="security-tab" data-bs-toggle="tab" data-bs-target="#security-pane" type="button" role="tab" aria-controls="security-pane" aria-selected="false">
+                                Security <span class="badge bg-warning ms-1">{{ scan.security_count }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="optimization-tab" data-bs-toggle="tab" data-bs-target="#optimization-pane" type="button" role="tab" aria-controls="optimization-pane" aria-selected="false">
+                                Optimization <span class="badge bg-info ms-1">{{ scan.optimization_count }}</span>
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="context-tab" data-bs-toggle="tab" data-bs-target="#context-pane" type="button" role="tab" aria-controls="context-pane" aria-selected="false">
+                                Project Context <span class="badge bg-success ms-1">{{ scan.context_analysis.suggestions|length + scan.context_analysis.warnings|length }}</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="issueTabContent">
+                        <div class="tab-pane fade show active" id="all-pane" role="tabpanel" aria-labelledby="all-tab">
+                            {% set all_issues = scan.bugs + scan.security + scan.optimizations %}
+                            {% if all_issues %}
+                                {% for issue in all_issues %}
+                                <div class="report-card mb-3">
+                                    <div class="report-card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            {% if issue in scan.bugs %}
+                                            <span class="badge bg-danger me-2">Bug</span>
+                                            {% elif issue in scan.security %}
+                                            <span class="badge bg-warning me-2">Security</span>
+                                            {% else %}
+                                            <span class="badge bg-info me-2">Optimization</span>
+                                            {% endif %}
+                                            
+                                            {% if issue.severity == 'high' or issue.severity == 'critical' %}
+                                            <span class="badge bg-danger">{{ issue.severity }}</span>
+                                            {% elif issue.severity == 'medium' %}
+                                            <span class="badge bg-warning">{{ issue.severity }}</span>
+                                            {% else %}
+                                            <span class="badge bg-info">{{ issue.severity }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <span class="text-muted">Line {{ issue.line }}</span>
                                     </div>
-                                    <small class="text-muted">Line {{ issue.line }}</small>
+                                    <div class="report-card-body">
+                                        <h5 class="mb-3">{{ issue.message }}</h5>
+                                        <pre class="bg-light p-3 rounded"><code>// Code snippet would be displayed here</code></pre>
+                                        <div class="mt-3">
+                                            <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                            <p>{{ issue.suggestion }}</p>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-3">
+                                            <button class="btn btn-sm btn-outline-primary me-2">
+                                                <i class="fas fa-check me-1"></i> Apply Fix
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-times me-1"></i> Ignore
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                                    <p class="lead">No issues found! Your code looks great.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="tab-pane fade" id="bugs-pane" role="tabpanel" aria-labelledby="bugs-tab">
+                            {% if scan.bugs %}
+                                {% for issue in scan.bugs %}
+                                <div class="report-card mb-3">
+                                    <div class="report-card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="badge bg-danger me-2">Bug</span>
+                                            {% if issue.severity == 'high' %}
+                                            <span class="badge bg-danger">{{ issue.severity }}</span>
+                                            {% elif issue.severity == 'medium' %}
+                                            <span class="badge bg-warning">{{ issue.severity }}</span>
+                                            {% else %}
+                                            <span class="badge bg-info">{{ issue.severity }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <span class="text-muted">Line {{ issue.line }}</span>
+                                    </div>
+                                    <div class="report-card-body">
+                                        <h5 class="mb-3">{{ issue.message }}</h5>
+                                        <pre class="bg-light p-3 rounded"><code>// Code snippet would be displayed here</code></pre>
+                                        <div class="mt-3">
+                                            <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                            <p>{{ issue.suggestion }}</p>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-3">
+                                            <button class="btn btn-sm btn-outline-primary me-2">
+                                                <i class="fas fa-check me-1"></i> Apply Fix
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-times me-1"></i> Ignore
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                                    <p class="lead">No bugs found! Your code looks great.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="tab-pane fade" id="security-pane" role="tabpanel" aria-labelledby="security-tab">
+                            {% if scan.security %}
+                                {% for issue in scan.security %}
+                                <div class="report-card mb-3">
+                                    <div class="report-card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="badge bg-warning me-2">Security</span>
+                                            {% if issue.severity == 'critical' %}
+                                            <span class="badge bg-danger">{{ issue.severity }}</span>
+                                            {% elif issue.severity == 'high' %}
+                                            <span class="badge bg-danger">{{ issue.severity }}</span>
+                                            {% elif issue.severity == 'medium' %}
+                                            <span class="badge bg-warning">{{ issue.severity }}</span>
+                                            {% else %}
+                                            <span class="badge bg-info">{{ issue.severity }}</span>
+                                            {% endif %}
+                                        </div>
+                                        <span class="text-muted">Line {{ issue.line }}</span>
+                                    </div>
+                                    <div class="report-card-body">
+                                        <h5 class="mb-3">{{ issue.message }}</h5>
+                                        <pre class="bg-light p-3 rounded"><code>// Code snippet would be displayed here</code></pre>
+                                        <div class="mt-3">
+                                            <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                            <p>{{ issue.suggestion }}</p>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-3">
+                                            <button class="btn btn-sm btn-outline-primary me-2">
+                                                <i class="fas fa-check me-1"></i> Apply Fix
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-times me-1"></i> Ignore
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                                    <p class="lead">No security issues found! Your code looks secure.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="tab-pane fade" id="optimization-pane" role="tabpanel" aria-labelledby="optimization-tab">
+                            {% if scan.optimizations %}
+                                {% for issue in scan.optimizations %}
+                                <div class="report-card mb-3">
+                                    <div class="report-card-header d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <span class="badge bg-info me-2">Optimization</span>
+                                            <span class="badge bg-info">{{ issue.severity }}</span>
+                                        </div>
+                                        <span class="text-muted">Line {{ issue.line }}</span>
+                                    </div>
+                                    <div class="report-card-body">
+                                        <h5 class="mb-3">{{ issue.message }}</h5>
+                                        <pre class="bg-light p-3 rounded"><code>// Code snippet would be displayed here</code></pre>
+                                        <div class="mt-3">
+                                            <h6 class="text-success"><i class="fas fa-lightbulb me-2"></i> Suggestion:</h6>
+                                            <p>{{ issue.suggestion }}</p>
+                                        </div>
+                                        <div class="d-flex justify-content-end mt-3">
+                                            <button class="btn btn-sm btn-outline-primary me-2">
+                                                <i class="fas fa-check me-1"></i> Apply Fix
+                                            </button>
+                                            <button class="btn btn-sm btn-outline-secondary">
+                                                <i class="fas fa-times me-1"></i> Ignore
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            {% else %}
+                                <div class="text-center py-5">
+                                    <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+                                    <p class="lead">No optimization opportunities found! Your code is already optimized.</p>
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="tab-pane fade" id="context-pane" role="tabpanel" aria-labelledby="context-tab">
+                            {% if scan.context_analysis %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Project Structure Analysis</h5>
+                                    <div class="card bg-light">
+                                        <div class="card-body">
+                                            <p class="mb-2"><strong>File Type:</strong> {{ scan.context_analysis.context.file_type }}</p>
+                                            <p class="mb-2"><strong>Entry Point:</strong> {% if scan.context_analysis.context.is_entry_point %}Yes{% else %}No{% endif %}</p>
+                                            <p class="mb-2"><strong>Dependencies:</strong> {{ scan.context_analysis.context.dependencies|length }}</p>
+                                            <p class="mb-0"><strong>Dependent Files:</strong> {{ scan.context_analysis.context.dependent_files|length }}</p>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <h5 class="card-title">{{ issue.message }}</h5>
-
-                                <!-- Code Snippet -->
-                                <div class="bg-light p-3 rounded mb-3">
-                                    <code>{{ issue.code_snippet }}</code>
-                                </div>
-
-                                <!-- Suggestion -->
-                                <div class="mb-3">
-                                    <i class="fas fa-lightbulb text-warning"></i>
-                                    <strong>Suggestion:</strong>
-                                    <p class="mb-0">{{ issue.suggestion }}</p>
-                                </div>
-
-                                <!-- Fix -->
-                                {% if issue.fix %}
-                                <div class="mb-3">
-                                    <strong>Suggested Fix:</strong>
-                                    <pre class="bg-light p-2 rounded mt-2"><code>{{ issue.fix.after }}</code></pre>
-                                    <p class="text-muted small">{{ issue.fix.explanation }}</p>
-                                    
-                                    <button class="btn btn-sm btn-primary apply-fix"
-                                            data-line="{{ issue.line }}"
-                                            data-before="{{ issue.code_snippet }}"
-                                            data-after="{{ issue.fix.after }}">
-                                        Apply Fix
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary ignore-issue ms-2">
-                                        Ignore
-                                    </button>
+                                {% if scan.context_analysis.suggestions %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Context-Aware Suggestions</h5>
+                                    {% for suggestion in scan.context_analysis.suggestions %}
+                                    <div class="report-card mb-3">
+                                        <div class="report-card-header">
+                                            <span class="badge bg-info me-2">{{ suggestion.type }}</span>
+                                            <span class="text-muted">Severity: {{ suggestion.severity }}</span>
+                                        </div>
+                                        <div class="report-card-body">
+                                            <p class="mb-0">{{ suggestion.message }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                                 {% endif %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
 
-                <!-- Bugs Tab -->
-                <div class="tab-pane fade" id="bugs" role="tabpanel">
-                    {% for bug in scan.bugs %}
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge bg-danger">{{ bug.severity|title }}</span>
-                                    <small class="text-muted">Line {{ bug.line }}</small>
-                                </div>
-
-                                <h5 class="card-title">{{ bug.message }}</h5>
-
-                                <!-- Code Snippet -->
-                                <div class="bg-light p-3 rounded mb-3">
-                                    <code>{{ bug.code_snippet }}</code>
-                                </div>
-
-                                <!-- Suggestion -->
-                                <div class="mb-3">
-                                    <i class="fas fa-lightbulb text-warning"></i>
-                                    <strong>Suggestion:</strong>
-                                    <p class="mb-0">{{ bug.suggestion }}</p>
-                                </div>
-
-                                <!-- Fix -->
-                                {% if bug.fix %}
-                                <div class="mb-3">
-                                    <strong>Suggested Fix:</strong>
-                                    <pre class="bg-light p-2 rounded mt-2"><code>{{ bug.fix.after }}</code></pre>
-                                    <p class="text-muted small">{{ bug.fix.explanation }}</p>
-                                    
-                                    <button class="btn btn-sm btn-primary apply-fix"
-                                            data-line="{{ bug.line }}"
-                                            data-before="{{ bug.code_snippet }}"
-                                            data-after="{{ bug.fix.after }}">
-                                        Apply Fix
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary ignore-issue ms-2">
-                                        Ignore
-                                    </button>
+                                {% if scan.context_analysis.warnings %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Project Structure Warnings</h5>
+                                    {% for warning in scan.context_analysis.warnings %}
+                                    <div class="report-card mb-3">
+                                        <div class="report-card-header">
+                                            <span class="badge bg-warning me-2">{{ warning.type }}</span>
+                                            <span class="text-muted">Severity: {{ warning.severity }}</span>
+                                        </div>
+                                        <div class="report-card-body">
+                                            <p class="mb-0">{{ warning.message }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                                 {% endif %}
-                            </div>
-                        </div>
-                    {% endfor %}
-                </div>
 
-                <!-- Security Tab -->
-                <div class="tab-pane fade" id="security" role="tabpanel">
-                    {% for issue in scan.security_issues %}
-                        <div class="card mb-3">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span class="badge bg-warning">{{ issue.severity|title }}</span>
-                                    <small class="text-muted">Line {{ issue.line }}</small>
-                                </div>
-
-                                <h5 class="card-title">{{ issue.message }}</h5>
-
-                                <!-- Code Snippet -->
-                                <div class="bg-light p-3 rounded mb-3">
-                                    <code>{{ issue.code_snippet }}</code>
-                                </div>
-
-                                <!-- Suggestion -->
-                                <div class="mb-3">
-                                    <i class="fas fa-lightbulb text-warning"></i>
-                                    <strong>Suggestion:</strong>
-                                    <p class="mb-0">{{ issue.suggestion }}</p>
-                                </div>
-
-                                <!-- Fix -->
-                                {% if issue.fix %}
-                                <div class="mb-3">
-                                    <strong>Suggested Fix:</strong>
-                                    <pre class="bg-light p-2 rounded mt-2"><code>{{ issue.fix.after }}</code></pre>
-                                    <p class="text-muted small">{{ issue.fix.explanation }}</p>
-                                    
-                                    <button class="btn btn-sm btn-primary apply-fix"
-                                            data-line="{{ issue.line }}"
-                                            data-before="{{ issue.code_snippet }}"
-                                            data-after="{{ issue.fix.after }}">
-                                        Apply Fix
-                                    </button>
-                                    <button class="btn btn-sm btn-secondary ignore-issue ms-2">
-                                        Ignore
-                                    </button>
+                                {% if scan.context_analysis.improvements %}
+                                <div class="mb-4">
+                                    <h5 class="mb-3">Suggested Improvements</h5>
+                                    {% for improvement in scan.context_analysis.improvements %}
+                                    <div class="report-card mb-3">
+                                        <div class="report-card-header">
+                                            <span class="badge bg-success me-2">Improvement</span>
+                                        </div>
+                                        <div class="report-card-body">
+                                            <p class="mb-0">{{ improvement }}</p>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
                                 </div>
                                 {% endif %}
-                            </div>
+                            {% else %}
+                                <div class="text-center text-muted py-4">
+                                    <p class="mb-0">No context analysis available for this file.</p>
+                                </div>
+                            {% endif %}
                         </div>
-                    {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Handle Apply Fix buttons
-    document.querySelectorAll('.apply-fix').forEach(button => {
-        button.addEventListener('click', function() {
-            const line = this.dataset.line;
-            const before = this.dataset.before;
-            const after = this.dataset.after;
-            
-            // Update the code display
-            const codeElement = this.closest('.card').querySelector('code');
-            if (codeElement) {
-                codeElement.textContent = after;
-            }
-            
-            // Update button state
-            this.textContent = 'Fix Applied';
-            this.disabled = true;
-            this.classList.remove('btn-primary');
-            this.classList.add('btn-success');
-        });
-    });
-
-    // Handle Ignore buttons
-    document.querySelectorAll('.ignore-issue').forEach(button => {
-        button.addEventListener('click', function() {
-            const card = this.closest('.card');
-            if (card) {
-                card.style.opacity = '0.5';
-                this.textContent = 'Ignored';
-                this.disabled = true;
-                
-                // Disable the apply fix button
-                const applyButton = card.querySelector('.apply-fix');
-                if (applyButton) {
-                    applyButton.disabled = true;
-                }
-            }
-        });
-    });
-});
-</script>
 {% endblock %} 
