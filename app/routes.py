@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from app.context_analyzer import analyze_code_with_context
 from app.suggestion_history import suggestion_history
 from app.repo_manager import repo_manager
-from app.ai_model import code_analyzer
+from app.ai_model import code_analyzer, detect_language, generate_test_code
 from app.ai_optimizer import ai_optimizer
 
 main_bp = Blueprint('main', __name__)
@@ -143,7 +143,6 @@ def upload():
     if request.method == 'POST':
         code_content = request.form.get('code_content')
         filename = request.form.get('filename', 'untitled.py')
-        language = request.form.get('language', 'python')
         
         # Process uploaded file if any
         if 'code_file' in request.files:
@@ -155,6 +154,9 @@ def upload():
         if not code_content:
             flash('No code provided')
             return redirect(url_for('main.upload'))
+        
+        # Auto-detect language based on file extension and code content
+        language = detect_language(filename, code_content)
         
         # Process the code with AI and context awareness
         global current_id
@@ -176,6 +178,12 @@ def upload():
             
             # Perform AI-based code analysis
             ai_analysis = code_analyzer.analyze_code(code_content, filename)
+            
+            # Add debug prints
+            print(f"Detected language: {detect_language(filename, code_content)}")
+            print(f"Number of bugs found: {len(ai_analysis.get('bugs', []))}")
+            print(f"Number of security issues found: {len(ai_analysis.get('security', []))}")
+            print(f"Number of optimization issues found: {len(ai_analysis.get('optimizations', []))}")
             
             # Perform context-aware analysis
             context_analysis = analyze_code_with_context(code_content, temp_file_path, project_root)
@@ -427,4 +435,27 @@ def repositories():
         return redirect(url_for('main.login'))
     
     repositories = repo_manager.list_repositories()
-    return render_template('repositories.html', repositories=repositories) 
+    return render_template('repositories.html', repositories=repositories)
+
+@main_bp.route('/test_bug_detection/<language>')
+def test_bug_detection(language):
+    """Test route to verify bug detection is working."""
+    if language not in ['python', 'javascript', 'java']:
+        language = 'python'
+    
+    # Generate test code with known bugs
+    test_code = generate_test_code(language)
+    filename = f"test.{language}"
+    
+    # Use the code analyzer to detect bugs
+    analysis = code_analyzer.analyze_code(test_code, filename)
+    
+    # Return the results as JSON
+    return jsonify({
+        'language': language,
+        'code': test_code,
+        'bugs': analysis.get('bugs', []),
+        'security': analysis.get('security', []),
+        'optimizations': analysis.get('optimizations', []),
+        'metrics': analysis.get('metrics', {})
+    }) 

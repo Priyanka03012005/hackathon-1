@@ -48,19 +48,13 @@
                                 </div>
                                 
                                 <div class="mb-3">
-                                    <label for="language" class="form-label">Programming Language</label>
-                                    <select class="form-select" id="language" name="language">
-                                        <option value="python">Python</option>
-                                        <option value="javascript">JavaScript</option>
-                                        <option value="java">Java</option>
-                                        <option value="html">HTML</option>
-                                        <option value="css">CSS</option>
-                                        <option value="cpp">C++</option>
-                                        <option value="c">C</option>
-                                        <option value="go">Go</option>
-                                        <option value="php">PHP</option>
-                                        <option value="ruby">Ruby</option>
-                                    </select>
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i> 
+                                        <small>The system will automatically detect the programming language based on the file extension and code content.</small>
+                                        <div id="language-detection-status" class="mt-1 d-none">
+                                            <strong>Detected language: <span id="detected-language">None</span></strong>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <div class="text-end">
@@ -90,25 +84,34 @@
                                     </div>
                                 </div>
                                 
-                                <div class="row">
-                                    <div class="col-md-6 mb-3">
-                                        <label for="filename" class="form-label">Filename</label>
-                                        <input type="text" class="form-control" id="filename" name="filename" placeholder="example.py">
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-end">
+                                        <div class="dropdown">
+                                            <button class="btn btn-outline-secondary dropdown-toggle" type="button" id="sampleCodeDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                                <i class="fas fa-vial me-1"></i> Test with sample buggy code
+                                            </button>
+                                            <ul class="dropdown-menu" aria-labelledby="sampleCodeDropdown">
+                                                <li><a class="dropdown-item" href="#" id="testPython">Python</a></li>
+                                                <li><a class="dropdown-item" href="#" id="testJavaScript">JavaScript</a></li>
+                                                <li><a class="dropdown-item" href="#" id="testJava">Java</a></li>
+                                            </ul>
+                                        </div>
                                     </div>
-                                    <div class="col-md-6 mb-3">
-                                        <label for="language" class="form-label">Programming Language</label>
-                                        <select class="form-select" id="language" name="language">
-                                            <option value="python">Python</option>
-                                            <option value="javascript">JavaScript</option>
-                                            <option value="java">Java</option>
-                                            <option value="html">HTML</option>
-                                            <option value="css">CSS</option>
-                                            <option value="cpp">C++</option>
-                                            <option value="c">C</option>
-                                            <option value="go">Go</option>
-                                            <option value="php">PHP</option>
-                                            <option value="ruby">Ruby</option>
-                                        </select>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <label for="filename" class="form-label">Filename</label>
+                                    <input type="text" class="form-control" id="filename" name="filename" placeholder="example.py">
+                                    <small class="text-muted">Including extension helps with language detection</small>
+                                </div>
+                                
+                                <div class="mb-3">
+                                    <div class="alert alert-info">
+                                        <i class="fas fa-info-circle me-2"></i> 
+                                        <small>The system will automatically detect the programming language based on the file extension and code content.</small>
+                                        <div id="paste-language-detection-status" class="mt-1 d-none">
+                                            <strong>Detected language: <span id="paste-detected-language">None</span></strong>
+                                        </div>
                                     </div>
                                 </div>
                                 
@@ -133,43 +136,179 @@
         // File upload handling
         const fileInput = document.getElementById('code_file');
         const fileNameDisplay = document.getElementById('file-name');
+        const languageDetectionStatus = document.getElementById('language-detection-status');
+        const detectedLanguageSpan = document.getElementById('detected-language');
         
         fileInput.addEventListener('change', function() {
             if (this.files && this.files[0]) {
                 fileNameDisplay.textContent = this.files[0].name;
                 
-                // Auto-select language based on file extension
+                // Show detected language based on file extension
                 const fileName = this.files[0].name;
                 const extension = fileName.split('.').pop().toLowerCase();
-                const languageSelect = document.querySelector('#upload-pane select[name="language"]');
+                let detectedLanguage = 'unknown';
                 
                 const extensionMap = {
-                    'py': 'python',
-                    'js': 'javascript',
-                    'java': 'java',
-                    'html': 'html',
-                    'css': 'css',
-                    'cpp': 'cpp',
-                    'c': 'c',
-                    'go': 'go',
-                    'php': 'php',
-                    'rb': 'ruby'
+                    'py': 'Python',
+                    'js': 'JavaScript',
+                    'ts': 'TypeScript',
+                    'html': 'HTML',
+                    'css': 'CSS',
+                    'java': 'Java',
+                    'cpp': 'C++',
+                    'c': 'C',
+                    'h': 'C',
+                    'hpp': 'C++',
+                    'go': 'Go',
+                    'php': 'PHP',
+                    'rb': 'Ruby',
+                    'rs': 'Rust',
+                    'swift': 'Swift',
+                    'kt': 'Kotlin',
+                    'cs': 'C#',
+                    'sql': 'SQL'
                 };
                 
                 if (extensionMap[extension]) {
-                    languageSelect.value = extensionMap[extension];
+                    detectedLanguage = extensionMap[extension];
                 }
+                
+                detectedLanguageSpan.textContent = detectedLanguage;
+                languageDetectionStatus.classList.remove('d-none');
             } else {
                 fileNameDisplay.textContent = 'No file selected';
+                languageDetectionStatus.classList.add('d-none');
             }
         });
         
+        // Code content detection
+        const codeTextarea = document.getElementById('code_content');
+        const filenameInput = document.getElementById('filename');
+        const pasteLanguageDetectionStatus = document.getElementById('paste-language-detection-status');
+        const pasteDetectedLanguageSpan = document.getElementById('paste-detected-language');
+        
+        // Detect language when code is pasted or when filename changes
+        function detectLanguageFromContent() {
+            if (codeTextarea.value.trim() !== '') {
+                // First try to detect from filename
+                let detectedLanguage = 'unknown';
+                
+                if (filenameInput.value) {
+                    const extension = filenameInput.value.split('.').pop().toLowerCase();
+                    const extensionMap = {
+                        'py': 'Python',
+                        'js': 'JavaScript',
+                        'ts': 'TypeScript',
+                        'html': 'HTML',
+                        'css': 'CSS',
+                        'java': 'Java',
+                        'cpp': 'C++',
+                        'c': 'C',
+                        'h': 'C',
+                        'hpp': 'C++',
+                        'go': 'Go',
+                        'php': 'PHP',
+                        'rb': 'Ruby',
+                        'rs': 'Rust',
+                        'swift': 'Swift',
+                        'kt': 'Kotlin',
+                        'cs': 'C#',
+                        'sql': 'SQL'
+                    };
+                    
+                    if (extensionMap[extension]) {
+                        detectedLanguage = extensionMap[extension];
+                    }
+                }
+                
+                // If can't detect from filename, try to detect from content patterns
+                if (detectedLanguage === 'unknown') {
+                    const code = codeTextarea.value;
+                    
+                    // Check for Python
+                    if (/import\s+[a-zA-Z_]+|from\s+[a-zA-Z_]+\s+import|def\s+[a-zA-Z_]+\s*\(|class\s+[a-zA-Z_]+\s*\(?/.test(code)) {
+                        detectedLanguage = 'Python';
+                    }
+                    // Check for JavaScript/TypeScript
+                    else if (/const\s+[a-zA-Z_]+|let\s+[a-zA-Z_]+|var\s+[a-zA-Z_]+|function\s+[a-zA-Z_]+\s*\(|=>|async|await/.test(code)) {
+                        if (/interface\s+|type\s+\w+\s*=|:\s*\w+Type/.test(code)) {
+                            detectedLanguage = 'TypeScript';
+                        } else {
+                            detectedLanguage = 'JavaScript';
+                        }
+                    }
+                    // Check for HTML
+                    else if (/<html>|<head>|<body>|<div>|<span>|<p>/.test(code)) {
+                        detectedLanguage = 'HTML';
+                    }
+                    // Check for CSS
+                    else if (/{\s*[\w-]+\s*:\s*[^;]+;\s*}/.test(code) && !/function|var|let|const/.test(code)) {
+                        detectedLanguage = 'CSS';
+                    }
+                    // Check for Java
+                    else if (/public\s+class|private\s+class|protected\s+class|class\s+\w+\s+{|import\s+java\./.test(code)) {
+                        detectedLanguage = 'Java';
+                    }
+                    // Check for C/C++
+                    else if (/#include\s+<\w+\.h>|#include\s+"[\w.]+"|void\s+\w+\s*\(|int\s+main\s*\(/.test(code)) {
+                        if (/std::|namespace|template|class\s+\w+|public:|private:/.test(code)) {
+                            detectedLanguage = 'C++';
+                        } else {
+                            detectedLanguage = 'C';
+                        }
+                    }
+                }
+                
+                pasteDetectedLanguageSpan.textContent = detectedLanguage;
+                pasteLanguageDetectionStatus.classList.remove('d-none');
+            } else {
+                pasteLanguageDetectionStatus.classList.add('d-none');
+            }
+        }
+        
+        codeTextarea.addEventListener('input', detectLanguageFromContent);
+        filenameInput.addEventListener('input', detectLanguageFromContent);
+        
         // Clear code button
         const clearCodeBtn = document.getElementById('clear-code');
-        const codeTextarea = document.getElementById('code_content');
         
         clearCodeBtn.addEventListener('click', function() {
             codeTextarea.value = '';
+            pasteLanguageDetectionStatus.classList.add('d-none');
+        });
+        
+        // Sample code buttons
+        document.getElementById('testPython').addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch('/test_bug_detection/python')
+                .then(response => response.json())
+                .then(data => {
+                    codeTextarea.value = data.code;
+                    document.getElementById('filename').value = 'test.py';
+                })
+                .catch(error => console.error('Error fetching Python sample:', error));
+        });
+        
+        document.getElementById('testJavaScript').addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch('/test_bug_detection/javascript')
+                .then(response => response.json())
+                .then(data => {
+                    codeTextarea.value = data.code;
+                    document.getElementById('filename').value = 'test.js';
+                })
+                .catch(error => console.error('Error fetching JavaScript sample:', error));
+        });
+        
+        document.getElementById('testJava').addEventListener('click', function(e) {
+            e.preventDefault();
+            fetch('/test_bug_detection/java')
+                .then(response => response.json())
+                .then(data => {
+                    codeTextarea.value = data.code;
+                    document.getElementById('filename').value = 'test.java';
+                })
+                .catch(error => console.error('Error fetching Java sample:', error));
         });
     });
 </script>
