@@ -50,12 +50,91 @@ class OllamaCodeLlama:
 
     def _generate_prompt(self, code_content: str, language: str) -> str:
         """Generate a prompt for Code Llama to analyze code."""
+        language_specific_hints = {
+            'python': """
+- Look for issues like mutable default arguments, using == instead of is for None
+- Check for potential race conditions, file handling errors, and exception misuse
+- Check for code that might have high memory usage or inefficient algorithms
+            """,
+            'javascript': """
+- Check for common issues like undefined variables, improper async/await usage
+- Look for security issues like XSS vulnerabilities, unsafe eval() usage
+- Check for inefficient DOM manipulations and memory leaks
+            """,
+            'typescript': """
+- Check for type-related issues, incorrect interface implementations
+- Look for Promise handling issues and improper type assertions
+- Identify inefficient TypeScript patterns
+            """,
+            'java': """
+- Check for memory leaks, thread safety issues, and exception misuse
+- Look for inefficient collections usage, String concatenation in loops
+- Identify code that might cause NullPointerException
+            """,
+            'cpp': """
+- Look for memory management issues, buffer overflows, and undefined behavior
+- Check for thread safety issues and potential race conditions
+- Identify inefficient algorithms and memory usage patterns
+            """,
+            'c': """
+- Check for memory leaks, buffer overflows, and pointer misuse
+- Look for undefined behavior and improper error handling
+- Identify inefficient memory allocation patterns
+            """,
+            'csharp': """
+- Check for improper IDisposable implementation, thread safety issues
+- Look for LINQ inefficiencies and async/await misuse
+- Identify boxing/unboxing issues and inefficient collections usage
+            """,
+            'go': """
+- Check for goroutine leaks, channel misuse, and race conditions
+- Look for error handling issues and nil pointer dereferences
+- Identify inefficient memory allocations and copying
+            """,
+            'ruby': """
+- Check for thread safety issues, mutability problems
+- Look for inefficient string operations and memory usage
+- Identify potential security issues in Rails code
+            """,
+            'rust': """
+- Check for unsafe code blocks, lifetime issues, and ownership problems
+- Look for improper error handling and Result/Option misuse
+- Identify inefficient memory allocations
+            """,
+            'php': """
+- Check for SQL injection vulnerabilities, XSS issues
+- Look for potential security risks in file operations
+- Identify inefficient database queries and memory usage
+            """,
+            'html': """
+- Check for accessibility issues, invalid markup
+- Look for performance issues with large DOM trees
+- Identify best practices violations
+            """,
+            'css': """
+- Check for browser compatibility issues
+- Look for inefficient selectors and animations
+- Identify layout performance issues
+            """,
+            'sql': """
+- Check for potential SQL injection vulnerabilities
+- Look for inefficient queries and missing indexes
+- Identify transaction issues and locking problems
+            """
+        }
+        
+        # Use the language-specific hints or a generic one if language not found
+        language_hints = language_specific_hints.get(language, "- Check for common programming issues, bugs, and inefficiencies")
+        
         return f"""You are an expert {language} developer with years of experience in code review and static analysis.
 
 Analyze the following code for:
 1. Bugs and logical errors
 2. Security vulnerabilities
 3. Performance optimizations
+
+Language-specific guidance:
+{language_hints}
 
 For each issue you find:
 - Include the line number

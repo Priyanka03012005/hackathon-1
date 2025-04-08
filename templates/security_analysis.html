@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+
+{% block title %}Security Analysis - AI Code Reviewer{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+<style>
+    .CodeMirror {
+        height: 500px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+    }
+    .vulnerability-high {
+        color: #dc3545;
+    }
+    .vulnerability-medium {
+        color: #fd7e14;
+    }
+    .vulnerability-low {
+        color: #ffc107;
+    }
+    .code-snippet {
+        font-family: monospace;
+        background-color: #f8f9fa;
+        padding: 10px;
+        border-radius: 4px;
+        white-space: pre-wrap;
+        margin-bottom: 10px;
+    }
+    .finding-card {
+        margin-bottom: 15px;
+        border-left: 4px solid #dc3545;
+    }
+    .upload-container {
+        border: 2px dashed #ddd;
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        background-color: #f8f9fa;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .upload-container:hover {
+        border-color: #0d6efd;
+        background-color: #e9ecef;
+    }
+    .tab-content {
+        padding: 20px;
+        border: 1px solid #dee2e6;
+        border-top: none;
+        border-radius: 0 0 4px 4px;
+    }
+    .nav-tabs {
+        margin-bottom: 0;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="mb-3">Security Analysis</h1>
+            <p class="lead">Detect security vulnerabilities in your code across multiple programming languages.</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <ul class="nav nav-tabs" id="analyzerTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="code-tab" data-bs-toggle="tab" data-bs-target="#code-panel" type="button" role="tab" aria-controls="code-panel" aria-selected="true">Analyze Code</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="file-tab" data-bs-toggle="tab" data-bs-target="#file-panel" type="button" role="tab" aria-controls="file-panel" aria-selected="false">Upload File</button>
+                        </li>
+                    </ul>
+                    
+                    <div class="tab-content" id="analyzerTabContent">
+                        <!-- Code Analysis Panel -->
+                        <div class="tab-pane fade show active" id="code-panel" role="tabpanel" aria-labelledby="code-tab">
+                            <form method="POST" action="{{ url_for('main.security_analysis') }}">
+                                <div class="mb-3">
+                                    <label for="language-select" class="form-label">Programming Language</label>
+                                    <select class="form-select" id="language-select" name="language" required>
+                                        <option value="" disabled {% if not language %}selected{% endif %}>Select a language</option>
+                                        {% for lang in supported_languages %}
+                                        <option value="{{ lang.value }}" {% if language == lang.value %}selected{% endif %}>{{ lang.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="code-editor" class="form-label">Code to Analyze</label>
+                                    <textarea id="code-editor" name="code">{{ code }}</textarea>
+                                </div>
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="fas fa-search me-2"></i>Analyze Code
+                                </button>
+                            </form>
+                        </div>
+                        
+                        <!-- File Upload Panel -->
+                        <div class="tab-pane fade" id="file-panel" role="tabpanel" aria-labelledby="file-tab">
+                            <form method="POST" action="{{ url_for('main.security_analysis') }}" enctype="multipart/form-data">
+                                <div class="upload-container mb-3" id="upload-container">
+                                    <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                                    <h5>Drag &amp; drop a file here</h5>
+                                    <p class="text-muted">or click to browse files</p>
+                                    <input type="file" id="file-input" name="code_file" class="d-none">
+                                </div>
+                                <div id="file-info" class="mb-3 d-none">
+                                    <div class="alert alert-info">
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-file-code me-2"></i>
+                                            <span id="file-name">filename.ext</span>
+                                            <button type="button" id="remove-file-btn" class="btn btn-sm btn-outline-danger ms-auto">
+                                                <i class="fas fa-times"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button type="submit" id="upload-analyze-btn" class="btn btn-primary" disabled>
+                                    <i class="fas fa-search me-2"></i>Analyze File
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if findings %}
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">Security Analysis Results</h5>
+                    <span class="badge {% if findings|length > 0 %}bg-danger{% else %}bg-success{% endif %}">{{ findings|length }}</span>
+                </div>
+                <div class="card-body">
+                    {% if findings|length == 0 %}
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle me-2"></i>
+                        No security vulnerabilities detected!
+                    </div>
+                    {% else %}
+                    <div class="vulnerability-list">
+                        {% for finding in findings %}
+                        <div class="card finding-card mb-3">
+                            <div class="card-header bg-light">
+                                <h5 class="mb-0 vulnerability-high">{{ finding.vulnerability }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <p><strong>Location:</strong> {% if uploaded_file %}{{ filename }}{% else %}Code{% endif %} (Line: {{ finding.line }})</p>
+                                <div class="code-snippet">{{ finding.code }}</div>
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Issue:</strong> {{ finding.explanation }}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h5 class="card-title mb-0">About Security Analysis</h5>
+                </div>
+                <div class="card-body">
+                    <p>Our security analyzer checks your code for common security vulnerabilities across multiple programming languages, including:</p>
+                    <ul>
+                        <li><strong>Remote Code Execution (RCE)</strong>: Detects patterns that could allow arbitrary code execution</li>
+                        <li><strong>SQL Injection</strong>: Identifies SQL queries vulnerable to injection attacks</li>
+                        <li><strong>Cross-site Scripting (XSS)</strong>: Finds potential XSS vulnerabilities in web applications</li>
+                        <li><strong>Buffer Overflow</strong>: Detects unsafe memory operations in languages like C/C++</li>
+                        <li><strong>Command Injection</strong>: Identifies shell command execution vulnerabilities</li>
+                        <li><strong>Hardcoded Secrets</strong>: Detects hardcoded credentials, API keys, and other sensitive data</li>
+                    </ul>
+                    <p class="mb-0">The security analyzer uses pattern matching against a database of known vulnerability patterns to identify potential security issues in your code.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/python/python.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/clike/clike.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/php/php.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/ruby/ruby.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/go/go.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/rust/rust.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize CodeMirror
+        const codeEditor = CodeMirror.fromTextArea(document.getElementById('code-editor'), {
+            mode: getCodeMirrorMode('{{ language }}'),
+            theme: 'dracula',
+            lineNumbers: true,
+            indentUnit: 4,
+            smartIndent: true,
+            tabSize: 4,
+            indentWithTabs: false,
+            lineWrapping: true
+        });
+
+        // Set active tab based on uploaded file
+        {% if uploaded_file %}
+        const fileTab = document.getElementById('file-tab');
+        fileTab.click();
+        {% endif %}
+
+        // Change CodeMirror mode when language is changed
+        document.getElementById('language-select').addEventListener('change', function(e) {
+            const language = e.target.value;
+            codeEditor.setOption('mode', getCodeMirrorMode(language));
+        });
+
+        // File upload UI handling
+        const uploadContainer = document.getElementById('upload-container');
+        const fileInput = document.getElementById('file-input');
+        const fileInfo = document.getElementById('file-info');
+        const fileName = document.getElementById('file-name');
+        const removeFileBtn = document.getElementById('remove-file-btn');
+        const uploadAnalyzeBtn = document.getElementById('upload-analyze-btn');
+
+        uploadContainer.addEventListener('click', () => fileInput.click());
+        
+        uploadContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadContainer.classList.add('border-primary');
+        });
+        
+        uploadContainer.addEventListener('dragleave', () => {
+            uploadContainer.classList.remove('border-primary');
+        });
+        
+        uploadContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadContainer.classList.remove('border-primary');
+            if (e.dataTransfer.files.length) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                handleFile(fileInput.files[0]);
+            }
+        });
+        
+        removeFileBtn.addEventListener('click', () => {
+            fileInput.value = '';
+            fileInfo.classList.add('d-none');
+            uploadContainer.classList.remove('d-none');
+            uploadAnalyzeBtn.disabled = true;
+        });
+        
+        function handleFile(file) {
+            fileName.textContent = file.name;
+            fileInfo.classList.remove('d-none');
+            uploadContainer.classList.add('d-none');
+            uploadAnalyzeBtn.disabled = false;
+        }
+
+        // Helper function to get CodeMirror mode based on language
+        function getCodeMirrorMode(language) {
+            const modeMap = {
+                'python': 'python',
+                'javascript': 'javascript',
+                'java': 'clike',
+                'csharp': 'clike',
+                'cpp': 'clike',
+                'php': 'php',
+                'ruby': 'ruby',
+                'go': 'go',
+                'rust': 'rust',
+                'swift': 'clike',
+                'kotlin': 'clike'
+            };
+            return modeMap[language] || 'text/plain';
+        }
+    });
+</script>
+{% endblock %} 

@@ -2,6 +2,7 @@ from flask import Blueprint, render_template, request, redirect, url_for, flash,
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 import json
+import tempfile
 from datetime import datetime, timedelta
 from app.context_analyzer import analyze_code_with_context
 from app.suggestion_history import suggestion_history
@@ -9,6 +10,7 @@ from app.repo_manager import repo_manager
 from app.ai_model import code_analyzer, detect_language, generate_test_code
 from app.ai_optimizer import ai_optimizer
 from app.ollama_integration import ollama_code_llama
+from code_security_analyzer import SecurityAnalyzer
 
 main_bp = Blueprint('main', __name__)
 
@@ -16,6 +18,9 @@ main_bp = Blueprint('main', __name__)
 users = {}
 code_history = {}
 current_id = 0
+
+# Path to the security vulnerability snippets file
+SNIPPETS_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'snippets.json')
 
 @main_bp.route('/')
 def index():
@@ -150,7 +155,16 @@ def upload():
             file = request.files['code_file']
             if file.filename:
                 filename = file.filename
-                code_content = file.read().decode('utf-8')
+                try:
+                    code_content = file.read().decode('utf-8')
+                except UnicodeDecodeError:
+                    try:
+                        # Try another encoding if utf-8 fails
+                        file.seek(0)
+                        code_content = file.read().decode('latin-1')
+                    except Exception as e:
+                        flash(f'Error reading file: {str(e)}. Please ensure the file contains text data.')
+                        return redirect(url_for('main.upload'))
         
         if not code_content:
             flash('No code provided')
@@ -158,6 +172,7 @@ def upload():
         
         # Auto-detect language based on file extension and code content
         language = detect_language(filename, code_content)
+        print(f"[DEBUG] Detected language: {language}")
         
         # Process the code with AI and context awareness
         global current_id
@@ -177,91 +192,78 @@ def upload():
             # Get project root (using the temp directory as project root)
             project_root = temp_dir
             
-            # Get Ollama setting from session
-            use_ollama = session.get('use_ollama', True)
-            print(f"[DEBUG] Upload: use_ollama setting = {use_ollama}")
-            
-            try:
-                if use_ollama:
-                    # Update Ollama URL if set in session
-                    ollama_url = session.get('ollama_url', 'http://localhost:11434')
-                    print(f"[DEBUG] Upload: Ollama URL = {ollama_url}")
-                    
-                    # Update the Ollama URL
-                    ollama_code_llama.base_url = ollama_url
-                    ollama_code_llama.api_url = f"{ollama_url}/api/generate"
-                    print(f"[DEBUG] Upload: Set API URL to {ollama_code_llama.api_url}")
-                    
-                    # Check if Ollama is available
-                    ollama_available = ollama_code_llama.check_availability()
-                    print(f"[DEBUG] Upload: Ollama availability check result = {ollama_available}")
-                    
-                    if ollama_available:
-                        print(f"[INFO] Using Ollama Code Llama model at {ollama_url} for analysis")
-                        try:
-                            print(f"[DEBUG] Upload: Starting Ollama code analysis for {language}")
-                            ai_analysis = ollama_code_llama.analyze_code(code_content, language)
-                            print(f"[SUCCESS] Ollama analysis completed with {len(ai_analysis.get('bugs', []))} bugs, " +
-                                  f"{len(ai_analysis.get('security', []))} security issues, and " +
-                                  f"{len(ai_analysis.get('optimizations', []))} optimization suggestions")
-                            
-                            # Add model info
-                            model_info = {
-                                'name': f"Ollama {ollama_code_llama.model_name}",
-                                'is_ollama': True,
-                                'url': ollama_url
-                            }
-                        except Exception as ollama_error:
-                            print(f"[ERROR] Ollama analysis failed: {str(ollama_error)}")
-                            print(f"[INFO] Falling back to rule-based analyzer")
-                            flash(f"Ollama analysis failed: {str(ollama_error)}. Using rule-based analyzer instead.", "warning")
-                            ai_analysis = code_analyzer.analyze_code(code_content, filename)
-                            
-                            # Add model info
-                            model_info = {
-                                'name': "Pattern Matcher (Fallback)",
-                                'is_ollama': False,
-                                'reason': str(ollama_error)
-                            }
-                    else:
-                        print(f"[ERROR] Ollama not available at {ollama_url}")
-                        print(f"[INFO] Falling back to rule-based analyzer")
-                        flash("Ollama server not available. Using rule-based analyzer instead.", "warning")
-                        ai_analysis = code_analyzer.analyze_code(code_content, filename)
-                        
-                        # Add model info
-                        model_info = {
-                            'name': "Pattern Matcher (Fallback)",
-                            'is_ollama': False,
-                            'reason': "Ollama server not available"
-                        }
-                else:
-                    print("[INFO] Rule-based analyzer selected per user settings")
-                    ai_analysis = code_analyzer.analyze_code(code_content, filename)
-                    
-                    # Add model info
-                    model_info = {
-                        'name': "Pattern Matcher",
-                        'is_ollama': False
-                    }
-            except Exception as e:
-                print(f"[ERROR] Critical error during analysis setup: {str(e)}")
-                flash(f"Analysis setup error: {str(e)}. Using rule-based analyzer.", "danger")
-                # Fall back to built-in analyzer if any error occurs
-                ai_analysis = code_analyzer.analyze_code(code_content, filename)
+            # Set Ollama as the default service
+            session['use_ollama'] = True
+            ollama_url = session.get('ollama_url', 'http://localhost:11434')
+            ollama_code_llama.base_url = ollama_url
+            ollama_code_llama.api_url = f"{ollama_url}/api/generate"
+            print(f"[DEBUG] Default Ollama URL set to {ollama_url}")
+
+            # Ensure Ollama is used for analysis
+            ollama_available = ollama_code_llama.check_availability()
+            if ollama_available:
+                print(f"[INFO] Using Ollama Code Llama model for {language} code analysis")
+                # Analyze the code using Ollama
+                analysis_results = ollama_code_llama.analyze_code(code_content, language)
                 
-                # Add model info
-                model_info = {
-                    'name': "Pattern Matcher (Error Recovery)",
-                    'is_ollama': False,
-                    'reason': str(e)
-                }
+                # Add the language to the analysis results for reference
+                if 'language' not in analysis_results:
+                    analysis_results['language'] = language
+                
+                print(f"[INFO] Analysis results received for {language} code")
+                
+                # Validate analysis results structure
+                if not isinstance(analysis_results, dict):
+                    print(f"[ERROR] Invalid analysis results format: {type(analysis_results)}")
+                    analysis_results = {
+                        'bugs': [],
+                        'security': [],
+                        'optimizations': [],
+                        'metrics': {
+                            'complexity': 50,
+                            'maintainability': 50,
+                            'performance': 50
+                        },
+                        'language': language
+                    }
+                
+                # Ensure all necessary keys exist
+                if 'bugs' not in analysis_results:
+                    analysis_results['bugs'] = []
+                if 'security' not in analysis_results:
+                    analysis_results['security'] = []
+                if 'optimizations' not in analysis_results:
+                    analysis_results['optimizations'] = []
+                if 'metrics' not in analysis_results:
+                    analysis_results['metrics'] = {
+                        'complexity': 50,
+                        'maintainability': 50,
+                        'performance': 50
+                    }
+                
+                # Store the results in the user's code history
+                code_history.setdefault(session['user_id'], []).append({
+                    'timestamp': datetime.now(),
+                    'language': language,
+                    'results': analysis_results,
+                    'bugs_count': len(analysis_results.get('bugs', [])),
+                    'security_count': len(analysis_results.get('security', [])),
+                    'optimization_count': len(analysis_results.get('optimizations', [])),
+                    'complexity_score': analysis_results['metrics']['complexity'],
+                    'maintainability_score': analysis_results['metrics']['maintainability'],
+                    'performance_score': analysis_results['metrics']['performance'],
+                    'reliability_score': 0  # Placeholder for future reliability metric
+                })
+                flash(f'Code analysis completed successfully for {language} code')
+            else:
+                flash('Ollama service is not available. Please check the service status.')
+                return redirect(url_for('main.upload'))
 
             # Add debug prints
-            print(f"Detected language: {language}")
-            print(f"Number of bugs found: {len(ai_analysis.get('bugs', []))}")
-            print(f"Number of security issues found: {len(ai_analysis.get('security', []))}")
-            print(f"Number of optimization issues found: {len(ai_analysis.get('optimizations', []))}")
+            print(f"[DEBUG] Detected language: {language}")
+            print(f"[DEBUG] Number of bugs found: {len(analysis_results.get('bugs', []))}")
+            print(f"[DEBUG] Number of security issues found: {len(analysis_results.get('security', []))}")
+            print(f"[DEBUG] Number of optimization issues found: {len(analysis_results.get('optimizations', []))}")
             
             # Perform context-aware analysis
             context_analysis = analyze_code_with_context(code_content, temp_file_path, project_root)
@@ -270,7 +272,7 @@ def upload():
             all_suggestions = []
             
             # Add bugs from AI analysis
-            for bug in ai_analysis.get('bugs', []):
+            for bug in analysis_results.get('bugs', []):
                 all_suggestions.append({
                     'type': 'bug',
                     'message': bug['message'],
@@ -279,7 +281,7 @@ def upload():
                 })
             
             # Add security issues from AI analysis
-            for security in ai_analysis.get('security', []):
+            for security in analysis_results.get('security', []):
                 all_suggestions.append({
                     'type': 'security',
                     'message': security['message'],
@@ -288,7 +290,7 @@ def upload():
                 })
             
             # Add optimizations from AI analysis
-            for optimization in ai_analysis.get('optimizations', []):
+            for optimization in analysis_results.get('optimizations', []):
                 all_suggestions.append({
                     'type': 'optimization',
                     'message': optimization['message'],
@@ -297,77 +299,31 @@ def upload():
                 })
             
             # Add context-aware suggestions
-            for suggestion in context_analysis.get('suggestions', []):
-                all_suggestions.append({
-                    'type': 'context',
-                    'message': suggestion['message'],
-                    'severity': suggestion['severity']
-                })
+            for suggestion in context_analysis:
+                all_suggestions.append(suggestion)
             
-            # Filter out redundant suggestions
-            filtered_suggestions = suggestion_history.filter_redundant_suggestions(
-                session['user_id'], 
-                all_suggestions
-            )
+            # Store scan ID for report viewing
+            session['last_scan_id'] = scan_id
+            session['last_code_content'] = code_content
+            session['last_language'] = language
+            session['last_analysis_results'] = analysis_results
+            session['last_suggestions'] = all_suggestions
             
-            # Add new suggestions to history
-            suggestion_history.add_suggestions(session['user_id'], filtered_suggestions)
-            
-            # Organize filtered suggestions back into categories
-            bugs = [s for s in filtered_suggestions if s['type'] == 'bug']
-            security = [s for s in filtered_suggestions if s['type'] == 'security']
-            optimizations = [s for s in filtered_suggestions if s['type'] == 'optimization']
-            context_suggestions = [s for s in filtered_suggestions if s['type'] == 'context']
-            
-            # Combine with existing analysis
-            analysis = {
-                'id': scan_id,
-                'filename': filename,
-                'language': language,
-                'timestamp': datetime.now(),
-                'code_content': code_content,  # Save the original code content
-                'bugs': ai_analysis.get('bugs', []),
-                'security': ai_analysis.get('security', []),
-                'optimizations': ai_analysis.get('optimizations', []),
-                'bugs_count': len(bugs),
-                'security_count': len(security),
-                'optimization_count': len(optimizations),
-                'complexity_score': ai_analysis.get('metrics', {}).get('complexity', 0),
-                'maintainability_score': ai_analysis.get('metrics', {}).get('maintainability', 0),
-                'performance_score': ai_analysis.get('metrics', {}).get('performance', 0),
-                'context_analysis': {
-                    **context_analysis,
-                    'suggestions': context_suggestions
-                },
-                # Include the metrics object to match the template
-                'metrics': ai_analysis.get('metrics', {
-                    'complexity': 0,
-                    'maintainability': 0,
-                    'performance': 0
-                }),
-                # Add model info
-                'model_info': model_info
-            }
-            
-            # Save to history
-            if session['user_id'] not in code_history:
-                code_history[session['user_id']] = []
-            
-            code_history[session['user_id']].append(analysis)
+            # Clean up temporary file
+            try:
+                os.remove(temp_file_path)
+            except Exception as e:
+                print(f"[WARNING] Failed to remove temporary file: {str(e)}")
             
             return redirect(url_for('main.report', scan_id=scan_id))
             
         except Exception as e:
-            flash(f'Error processing code: {str(e)}')
+            import traceback
+            error_msg = f"Error during code analysis: {str(e)}"
+            print(f"[ERROR] {error_msg}")
+            print(f"[ERROR] {traceback.format_exc()}")
+            flash(error_msg)
             return redirect(url_for('main.upload'))
-            
-        finally:
-            # Clean up temporary file
-            try:
-                if os.path.exists(temp_file_path):
-                    os.remove(temp_file_path)
-            except Exception as e:
-                print(f'Error cleaning up temporary file: {str(e)}')
     
     return render_template('upload.html')
 
@@ -590,4 +546,130 @@ def test_bug_detection(language):
         'security': analysis.get('security', []),
         'optimizations': analysis.get('optimizations', []),
         'metrics': analysis.get('metrics', {})
-    }) 
+    })
+
+@main_bp.route('/security-analysis', methods=['GET', 'POST'])
+def security_analysis():
+    if 'user_id' not in session:
+        return redirect(url_for('main.login'))
+    
+    # Initialize variables
+    code = ""
+    language = ""
+    findings = []
+    uploaded_file = False
+    filename = ""
+    
+    if request.method == 'POST':
+        # Handle code input from textarea
+        if 'code' in request.form and 'language' in request.form:
+            code = request.form.get('code')
+            language = request.form.get('language')
+            
+            if not code.strip():
+                flash('No code provided for analysis', 'warning')
+                return redirect(url_for('main.security_analysis'))
+            
+            # Save code to temporary file
+            ext_map = {
+                'python': '.py',
+                'javascript': '.js',
+                'java': '.java',
+                'csharp': '.cs',
+                'cpp': '.cpp',
+                'php': '.php',
+                'ruby': '.rb',
+                'go': '.go',
+                'rust': '.rs',
+                'swift': '.swift',
+                'kotlin': '.kt'
+            }
+            ext = ext_map.get(language.lower(), '.txt')
+            
+            # Create a temporary file with the appropriate extension
+            fd, temp_path = tempfile.mkstemp(suffix=ext)
+            try:
+                with os.fdopen(fd, 'w') as tmp:
+                    tmp.write(code)
+                
+                # Run security analysis
+                analyzer = SecurityAnalyzer(SNIPPETS_FILE)
+                findings = analyzer.analyze_file(temp_path)
+                
+            except Exception as e:
+                flash(f'Error analyzing code: {str(e)}', 'danger')
+            finally:
+                # Clean up the temporary file
+                if os.path.exists(temp_path):
+                    os.remove(temp_path)
+                    
+        # Handle file upload
+        elif 'code_file' in request.files:
+            file = request.files['code_file']
+            if file.filename:
+                filename = file.filename
+                try:
+                    # Save the uploaded file to a temporary location
+                    fd, temp_path = tempfile.mkstemp()
+                    file.save(temp_path)
+                    uploaded_file = True
+                    
+                    # Auto-detect language
+                    ext = os.path.splitext(filename)[1].lower()
+                    language_map = {
+                        '.py': 'python',
+                        '.js': 'javascript',
+                        '.java': 'java',
+                        '.cs': 'csharp',
+                        '.cpp': 'cpp',
+                        '.c': 'cpp',
+                        '.h': 'cpp',
+                        '.hpp': 'cpp',
+                        '.php': 'php',
+                        '.rb': 'ruby',
+                        '.go': 'go',
+                        '.rs': 'rust',
+                        '.swift': 'swift',
+                        '.kt': 'kotlin'
+                    }
+                    language = language_map.get(ext, 'unknown')
+                    
+                    # Read file content for display
+                    with open(temp_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        code = f.read()
+                    
+                    # Run security analysis
+                    analyzer = SecurityAnalyzer(SNIPPETS_FILE)
+                    findings = analyzer.analyze_file(temp_path)
+                    
+                except Exception as e:
+                    flash(f'Error analyzing file: {str(e)}', 'danger')
+                finally:
+                    # Clean up the temporary file
+                    if os.path.exists(temp_path):
+                        os.remove(temp_path)
+            else:
+                flash('No file selected', 'warning')
+    
+    # Get list of supported languages for the dropdown
+    supported_languages = [
+        {"name": "Python", "value": "python", "extension": ".py"},
+        {"name": "JavaScript", "value": "javascript", "extension": ".js"},
+        {"name": "Java", "value": "java", "extension": ".java"},
+        {"name": "C#", "value": "csharp", "extension": ".cs"},
+        {"name": "C++", "value": "cpp", "extension": ".cpp"},
+        {"name": "PHP", "value": "php", "extension": ".php"},
+        {"name": "Ruby", "value": "ruby", "extension": ".rb"},
+        {"name": "Go", "value": "go", "extension": ".go"},
+        {"name": "Rust", "value": "rust", "extension": ".rs"},
+        {"name": "Swift", "value": "swift", "extension": ".swift"},
+        {"name": "Kotlin", "value": "kotlin", "extension": ".kt"}
+    ]
+    
+    return render_template('security_analysis.html', 
+                          code=code, 
+                          language=language, 
+                          findings=findings, 
+                          supported_languages=supported_languages,
+                          uploaded_file=uploaded_file,
+                          filename=filename) 

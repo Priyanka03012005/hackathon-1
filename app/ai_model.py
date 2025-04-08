@@ -2,6 +2,8 @@ import re
 from typing import Dict, List, Any
 
 class CodeAnalyzer:
+
+    
     def __init__(self):
         # Define language-specific patterns
         self.language_patterns = {
@@ -208,26 +210,36 @@ class CodeAnalyzer:
         
         # Detect language
         language = detect_language(filename, code_content)
-        print(f"Analyzing code with language: {language}")
+        print(f"[INFO] Analyzing code with language: {language}")
         
-        # Get language-specific patterns
-        patterns = self.language_patterns.get(language, self.language_patterns['python'])
-        print(f"Number of bug patterns for {language}: {len(patterns['bugs'])}")
-        print(f"Number of security patterns for {language}: {len(patterns['security'])}")
-        print(f"Number of optimization patterns for {language}: {len(patterns['optimizations'])}")
+        # If language is not supported in our patterns, use basic analysis
+        if language not in self.language_patterns:
+            print(f"[WARNING] No specific patterns for {language}, using Python patterns as fallback")
+            patterns = self.language_patterns.get('python', {})
+        else:
+            # Get language-specific patterns
+            patterns = self.language_patterns.get(language, {})
+            
+        # Add debug info
+        print(f"[DEBUG] Number of bug patterns for {language}: {len(patterns.get('bugs', {}))}")
+        print(f"[DEBUG] Number of security patterns for {language}: {len(patterns.get('security', {}))}")
+        print(f"[DEBUG] Number of optimization patterns for {language}: {len(patterns.get('optimizations', {}))}")
         
         # Split code into lines for line-by-line analysis
         lines = code_content.split('\n')
-        print(f"Total lines of code: {len(lines)}")
+        print(f"[DEBUG] Total lines of code: {len(lines)}")
         
         # First, check for patterns in the entire code content
         # This captures patterns that might span multiple lines
         for pattern_type in ['bugs', 'security', 'optimizations']:
+            if pattern_type not in patterns:
+                continue
+                
             for pattern, info in patterns[pattern_type].items():
                 for match in re.finditer(pattern, code_content, re.MULTILINE):
                     # Find the line number of the match
                     line_number = code_content[:match.start()].count('\n') + 1
-                    print(f"Found {pattern_type} issue at line {line_number}: {info['message']}")
+                    print(f"[INFO] Found {pattern_type} issue at line {line_number}: {info['message']}")
                     
                     # Get context (3 lines before and after)
                     start_line = max(0, line_number - 4)
@@ -242,14 +254,10 @@ class CodeAnalyzer:
                         'fix': info['fix']
                     })
         
-        # Check for line-specific patterns
-        for i, line in enumerate(lines, 1):
-            line = line.strip()
-            if not line or line.startswith('#'):
-                continue
-
-        # Calculate metrics
-        results['metrics'] = self.calculate_metrics(code_content, language)
+        # Calculate code metrics
+        metrics = self.calculate_metrics(code_content, language)
+        results['metrics'] = metrics
+        results['language'] = language
         
         return results
 
@@ -394,10 +402,13 @@ def detect_language(filename=None, code_content=None):
         'py': 'python',
         'js': 'javascript',
         'ts': 'typescript',
+        'jsx': 'javascript',
+        'tsx': 'typescript',
         'html': 'html',
         'css': 'css',
         'java': 'java',
         'cpp': 'cpp',
+        'cc': 'cpp',
         'c': 'c',
         'h': 'c',
         'hpp': 'cpp',
@@ -421,32 +432,41 @@ def detect_language(filename=None, code_content=None):
     if filename:
         extension = filename.split('.')[-1].lower()
         if extension in extension_map:
+            print(f"[INFO] Detected language from file extension: {extension_map[extension]}")
             return extension_map[extension]
     
     # If can't detect by extension, try to detect by content patterns
     if code_content:
-        # Check for Python
-        if re.search(r'import\s+[a-zA-Z_]+|from\s+[a-zA-Z_]+\s+import|def\s+[a-zA-Z_]+\s*\(|class\s+[a-zA-Z_]+\s*\(?', code_content):
-            return 'python'
-        # Check for JavaScript/TypeScript
-        elif re.search(r'const\s+[a-zA-Z_]+|let\s+[a-zA-Z_]+|var\s+[a-zA-Z_]+|function\s+[a-zA-Z_]+\s*\(|=>|async|await', code_content):
-            if re.search(r'interface\s+|type\s+\w+\s*=|:\s*\w+Type', code_content):
-                return 'typescript'
-            return 'javascript'
-        # Check for HTML
-        elif re.search(r'<!DOCTYPE\s+html>|<html>|<head>|<body>|<div>|<span>|<p>', code_content, re.IGNORECASE):
-            return 'html'
-        # Check for CSS
-        elif re.search(r'{\s*[\w-]+\s*:\s*[^;]+;\s*}', code_content) and not re.search(r'function|var|let|const', code_content):
-            return 'css'
-        # Check for Java
-        elif re.search(r'public\s+class|private\s+class|protected\s+class|class\s+\w+\s+{|import\s+java\.', code_content):
-            return 'java'
-        # Check for C/C++
-        elif re.search(r'#include\s+<\w+\.h>|#include\s+"[\w.]+"|void\s+\w+\s*\(|int\s+main\s*\(', code_content):
-            if re.search(r'std::|namespace|template|class\s+\w+|public:|private:', code_content):
-                return 'cpp'
-            return 'c'
+        patterns = {
+            'python': r'import\s+[a-zA-Z_]+|from\s+[a-zA-Z_]+\s+import|def\s+[a-zA-Z_]+\s*\(|class\s+[a-zA-Z_]+\s*\(?',
+            'javascript': r'const\s+[a-zA-Z_$]+|let\s+[a-zA-Z_$]+|var\s+[a-zA-Z_$]+|function\s+[a-zA-Z_$]+\s*\(|=>|async|await|document\.|window\.',
+            'typescript': r'interface\s+|type\s+\w+\s*=|:\s*\w+Type|<\w+>|export\s+class|implements\s+|namespace\s+',
+            'html': r'<!DOCTYPE\s+html>|<html>|<head>|<body>|<div>|<span>|<p>',
+            'css': r'(\.|#|\*)[a-zA-Z_-]+\s*{|@media|@import|@keyframes',
+            'java': r'public\s+(class|interface)|private\s+|protected\s+|class\s+\w+\s+{|import\s+java\.|@Override',
+            'cpp': r'#include\s+<(\w+)\.h>|::\w+|namespace\s+\w+|std::|template|class\s+\w+|public:|private:',
+            'c': r'#include\s+<(\w+)\.h>|void\s+\w+\s*\(|int\s+main\s*\(|\bchar\s+\*|\bint\s+\w+\[|\bstruct\s+\w+\s*{',
+            'csharp': r'using\s+System;|namespace\s+\w+|public\s+class|private\s+|protected\s+|internal\s+|\bvar\s+\w+\s*=',
+            'go': r'package\s+\w+|import\s+\(|func\s+\(|func\s+\w+\s*\(|type\s+\w+\s+struct',
+            'ruby': r'require\s+|def\s+\w+|class\s+\w+\s*<|module\s+\w+|attr_accessor|attr_reader',
+            'rust': r'fn\s+\w+|struct\s+\w+|impl\s+|let\s+mut|use\s+\w+::|enum\s+\w+',
+            'php': r'<\?php|\$\w+|function\s+\w+\s*\(|namespace\s+\w+|use\s+\w+',
+            'swift': r'import\s+\w+|var\s+\w+\s*:|let\s+\w+\s*:|func\s+\w+\s*\(|class\s+\w+|struct\s+\w+',
+            'kotlin': r'fun\s+\w+|val\s+\w+|var\s+\w+|class\s+\w+|package\s+\w+|import\s+\w+'
+        }
+        
+        # Check for each language in order of likelihood
+        matches = {}
+        for lang, pattern in patterns.items():
+            matches[lang] = len(re.findall(pattern, code_content, re.MULTILINE))
+        
+        # Get the language with the most matches
+        if matches:
+            best_match = max(matches.items(), key=lambda x: x[1])
+            if best_match[1] > 0:
+                print(f"[INFO] Detected language from content patterns: {best_match[0]} (confidence: {best_match[1]} matches)")
+                return best_match[0]
     
     # Default to Python if can't determine
+    print("[WARNING] Could not confidently determine language. Defaulting to Python.")
     return 'python' 

@@ -1,0 +1,90 @@
+{
+    "Python": {
+        "vulnerability": "Remote Code Execution (RCE)",
+        "code": {
+            "vulnerable": "user_input = input(\"Enter command: \")\neval(user_input)  # \u274c RCE Risk",
+            "secure": "import subprocess\nsubprocess.run(user_input.split())  # \u2705 Safer execution"
+        },
+        "explanation": "Avoid `eval()` with user input. Use subprocess with sanitized input."
+    },
+    "PHP": {
+        "vulnerability": "Remote Code Execution (RCE)",
+        "code": {
+            "vulnerable": "$cmd = $_GET['cmd'];\neval($cmd);  // \u274c Dangerous: RCE",
+            "secure": "$cmd = escapeshellcmd($_GET['cmd']);\necho shell_exec($cmd);  // \u2705 Safer"
+        },
+        "explanation": "Never use `eval()` on user input. Use sanitized shell commands if necessary."
+    },
+    "Java": {
+        "vulnerability": "SQL Injection (SQLi)",
+        "code": {
+            "vulnerable": "Statement stmt = conn.createStatement();\nResultSet rs = stmt.executeQuery(\"SELECT * FROM users WHERE id=\" + id);",
+            "secure": "PreparedStatement ps = conn.prepareStatement(\"SELECT * FROM users WHERE id=?\");\nps.setInt(1, id);\nResultSet rs = ps.executeQuery();"
+        },
+        "explanation": "Always use prepared statements to prevent SQL injection."
+    },
+    "JavaScript": {
+        "vulnerability": "Cross-site Scripting (XSS)",
+        "code": {
+            "vulnerable": "const userInput = \"<script>alert(1)</script>\";\ndocument.body.innerHTML = userInput;  // \u274c XSS",
+            "secure": "const safe = document.createTextNode(userInput);\ndocument.body.appendChild(safe);  // \u2705 Encoded safely"
+        },
+        "explanation": "Never inject raw HTML from user input. Sanitize or encode it."
+    },
+    "C++": {
+        "vulnerability": "Buffer Overflow",
+        "code": {
+            "vulnerable": "char buffer[10];\nstrcpy(buffer, user_input);  // \u274c No bounds checking",
+            "secure": "strncpy(buffer, user_input, sizeof(buffer) - 1);\nbuffer[sizeof(buffer) - 1] = '\\0';"
+        },
+        "explanation": "Use `strncpy()` to avoid buffer overflows."
+    },
+    "C#": {
+        "vulnerability": "SQL Injection",
+        "code": {
+            "vulnerable": "string sql = \"SELECT * FROM users WHERE name = '\" + name + \"'\";",
+            "secure": "var cmd = new SqlCommand(\"SELECT * FROM users WHERE name = @name\", conn);\ncmd.Parameters.AddWithValue(\"@name\", name);"
+        },
+        "explanation": "Always parameterize queries to avoid SQL injection."
+    },
+    "Go": {
+        "vulnerability": "Command Injection",
+        "code": {
+            "vulnerable": "cmd := exec.Command(\"bash\", \"-c\", userInput)  // \u274c RCE",
+            "secure": "cmd := exec.Command(\"ls\", \"-l\")  // \u2705 Fixed command"
+        },
+        "explanation": "Never pass raw user input to shell execution."
+    },
+    "Kotlin": {
+        "vulnerability": "Hardcoded Secrets",
+        "code": {
+            "vulnerable": "val apiKey = \"hardcoded-api-key-123\"  // \u274c Bad practice",
+            "secure": "val apiKey = System.getenv(\"API_KEY\") ?: throw Exception(\"Missing API key\")"
+        },
+        "explanation": "Use environment variables instead of hardcoding sensitive data."
+    },
+    "Ruby": {
+        "vulnerability": "Command Injection",
+        "code": {
+            "vulnerable": "system(\"ls #{params[:dir]}\")  // \u274c Injection",
+            "secure": "system(\"ls\", params[:dir])  // \u2705 Safer argument passing"
+        },
+        "explanation": "Never interpolate untrusted input into `system()`."
+    },
+    "Rust": {
+        "vulnerability": "Panic from unwrap",
+        "code": {
+            "vulnerable": "let val = std::env::var(\"SECRET\").unwrap();  // \u274c Panics if unset",
+            "secure": "let val = std::env::var(\"SECRET\").unwrap_or_else(|_| \"default\".to_string());"
+        },
+        "explanation": "Always handle `Result` or `Option` types properly."
+    },
+    "Swift": {
+        "vulnerability": "Force Unwrapping",
+        "code": {
+            "vulnerable": "let fileContent = try! String(contentsOfFile: path)  // \u274c Crashes on error",
+            "secure": "if let fileContent = try? String(contentsOfFile: path) {\n    print(fileContent)\n}"
+        },
+        "explanation": "Avoid force unwrapping. Use `try?` or error handling."
+    }
+}
